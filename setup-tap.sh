@@ -23,6 +23,19 @@ PASSWORD="$2"
 kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/releases/latest/download/release.yml -y
 kubectl create ns tap-install
 kubectl create secret docker-registry tap-registry -n tap-install --docker-server='registry.pivotal.io' --docker-username="$USERNAME" --docker-password="$PASSWORD"
+
+cat > tap-package-repo.yaml <<EOF
+apiVersion: packaging.carvel.dev/v1alpha1
+kind: PackageRepository
+metadata:
+  name: tanzu-tap-repository
+spec:
+  fetch:
+    imgpkgBundle:
+      image: registry.pivotal.io/tanzu-application-platform/tap-packages:0.1.0
+      secretRef:
+        name: tap-registry
+EOF
 kapp deploy -a tap-package-repo -n tap-install -f ./tap-package-repo.yaml -y
 tanzu package repository list -n tap-install
 
@@ -46,6 +59,7 @@ ingress:
 
 local_dns:
   enable: "true"
+  domain: "vcap.me"
 EOF
 
 tanzu package install cloud-native-runtimes -p cnrs.tanzu.vmware.com -v 1.0.1 -n tap-install -f cnr-values.yaml --poll-timeout 10m
