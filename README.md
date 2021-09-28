@@ -43,6 +43,35 @@ DockerHub) to which you can push container images.
 After the setup script completes you should have a fully functioning TAP
 installation, ready to build and run applications.
 
+### Using TAP
+
 Port forwarding will have been set up so that the Application Accelerator should
 be accessible on http://localhost:8877 and App Live View on http://localhost:5112.
 
+The TAP components are configured to work primarily in the `tap-install`
+namespace.
+
+You can create a Git-triggered image build using `kp` like this (assuming you
+have the source for the Spring Petclinic app at https://github.com/somebody/spring-petclinic
+and access to a container registry at repo.example.com/somebody):
+
+```bash
+kp image create petclinic \
+  --tag repo.example.com/somebody/petclinic \
+  --git https://github.com/example/spring-petclinic \
+  -n tap-install
+```
+
+You can then run the application, once it has built, as follows:
+
+```bash
+kn service create petclinic \
+  -n tap-install
+  --image repo.example.com/somebody/petclinic \
+  --scale-min=1 \
+  --label tanzu.app.live.view=true \
+  --label tanzu.app.live.view.application.name=petclinic
+```
+
+This will result in the app being run and exposed at
+http://petclinic.tap-install.vcap.me. 
