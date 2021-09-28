@@ -31,7 +31,7 @@ then
   REG_HOST=''
 fi
 
-echo ">>> Deploying kapp controller ...
+echo ">>> Deploying kapp controller ..."
 kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/releases/latest/download/release.yml -y
 
 echo ">>> Creating tap-install namespace ..."
@@ -44,7 +44,7 @@ echo ">>> Creating tap-install namespace ..."
     --docker-username="$TN_USERNAME" \
     --docker-password="$TN_PASSWORD"
 
-echo ">>> Creating TAP package repository"
+echo ">>> Creating TAP package repository ..."
 cat > tap-package-repo.yaml <<EOF
 apiVersion: packaging.carvel.dev/v1alpha1
 kind: PackageRepository
