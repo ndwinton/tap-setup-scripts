@@ -206,26 +206,21 @@ kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
 echo ">>> Setting up port forwarding for App Live View (http://localhost:5112) ..."
 kubectl port-forward service/application-live-view-5112 5112:5112 -n tap-install &
 
-echo "Setting up Tanzu Build Service ..."
+echo ">>> Setting up Tanzu Build Service ..."
 
-docker login -u "$TN_USERNAME" -p "$TN_PASSWORD" registry.pivotal.io
-docker login -u "REG_USERNAME" -p "$REG_PASSWORD" $REG_HOST
+echo "$TN_PASSWORD" | docker login -u "$TN_USERNAME" --password-stdin registry.pivotal.io
+echo "$REG_PASSWORD" | docker login -u "$REG_USERNAME" --password-stdin $REG_HOST
 
+echo "(Preparing to copy images)"
 imgpkg copy -b "registry.pivotal.io/build-service/bundle:1.2.2" --to-repo $REGISTRY
-imgpkg pull -b $REGISTRY:1.2.2 -o /tmp/bundle
+imgpkg pull -b $REGISTRY:1.2.2 -o ./bundle
 
-mv ~/Downloads/descriptor-100.0.171.yaml .
-docker login
-docker login registry.pivotal.io
-imgpkg copy -b "registry.pivotal.io/build-service/bundle:1.2.2" --to-repo nwinton/tbs
-imgpkg pull -b nwinton/tbs:1.2.2 -o /tmp/bundle
-less /tmp/bundle/values.yaml
-ytt -f /tmp/bundle/values.yaml \
-  -f /tmp/bundle/config/ \
+ytt -f ./bundle/values.yaml \
+  -f ./bundle/config/ \
   -v docker_repository="$REPOSITORY" \
-  -v docker_username="$USERNAME" \
-  -v docker_password="$PASSWORD" | \
-  kbld -f /tmp/bundle/.imgpkg/images.yml -f- | \
+  -v docker_username="$REG_USERNAME" \
+  -v docker_password="$REG_PASSWORD" | \
+  kbld -f ./bundle/.imgpkg/images.yml -f- | \
   kapp deploy -a tanzu-build-service -f- -y
 
 echo ">>> Creating TBS secret and TAP service account ..."
