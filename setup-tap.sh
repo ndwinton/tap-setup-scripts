@@ -87,6 +87,20 @@ EOF
 tanzu package install cloud-native-runtimes -p cnrs.tanzu.vmware.com -v 1.0.1 -n tap-install -f cnr-values.yaml --poll-timeout 10m
 kapp inspect -n tap-install -a cloud-native-runtimes-ctrl -y
 
+echo ">>> Setting CNR (knative) domain to vcap.me ..."
+
+cat > vcap-me.yaml <<EOF
+apiVersion: v1
+data:
+  vcap.me: |
+kind: ConfigMap
+metadata:
+  name: config-domain
+  namespace: knative-serving
+EOF
+
+kubectl apply -f vcap-me.yaml
+
 echo ">>> Deploying Flux ..."
 kapp deploy -a flux -f https://github.com/fluxcd/flux2/releases/download/v0.15.0/install.yaml -y
 
