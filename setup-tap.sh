@@ -264,6 +264,7 @@ EOF
 kubectl apply -f tap-sa.yaml
 
 echo ">>> Importing the Build Service images -- this will take a long time ..."
+echo "    If it fails, you can safely run 'kp import -f descriptor.yaml' to complete the process"
 # descriptor-100.0.171.yaml
 cat > descriptor.yaml <<EOF
 apiVersion: kp.kpack.io/v1alpha3
