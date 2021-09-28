@@ -39,3 +39,10 @@ These tools are:
 
 You will also need a login to the Tanzu Network and access to a Docker registry (e.g.
 DockerHub) to which you can push container images.
+
+After the setup script completes you should have a fully functioning TAP
+installation, ready to build and run applications.
+
+Port forwarding will have been set up so that the Application Accelerator should
+be accessible on http://localhost:8877 and App Live View on http://localhost:5112.
+
