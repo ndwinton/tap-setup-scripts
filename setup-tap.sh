@@ -217,7 +217,7 @@ imgpkg pull -b $REGISTRY:1.2.2 -o ./bundle
 
 ytt -f ./bundle/values.yaml \
   -f ./bundle/config/ \
-  -v docker_repository="$REPOSITORY" \
+  -v docker_repository="$REGISTRY" \
   -v docker_username="$REG_USERNAME" \
   -v docker_password="$REG_PASSWORD" | \
   kbld -f ./bundle/.imgpkg/images.yml -f- | \
@@ -263,7 +263,7 @@ roleRef:
 EOF
 kubectl apply -f tap-sa.yaml
 
-echo ">>> Importing the TBS dependency descriptor ..."
+echo ">>> Importing the Build Service images -- this will take a long time ..."
 # descriptor-100.0.171.yaml
 cat > descriptor.yaml <<EOF
 apiVersion: kp.kpack.io/v1alpha3
@@ -358,6 +358,7 @@ clusterBuilders:
     - id: paketo-buildpacks/procfile
 EOF
 
+kp import -f descriptor.yaml
 kp clusterstack list
 
 echo ">>> COMPLETE <<<"
