@@ -47,6 +47,9 @@ echo \
 sudo apt-get update -y
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
+log "Adding $USER to docker group (logout/in to take effect)"
+sudo usermod -a -G docker $USER
+
 DOWNLOADS=/tmp/downloads
 mkdir -p $DOWNLOADS
 
