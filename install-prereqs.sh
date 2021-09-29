@@ -79,7 +79,7 @@ log "Installing pivnet CLI"
 curl -Lo $DOWNLOADS/pivnet https://github.com/pivotal-cf/pivnet-cli/releases/download/v3.0.1/pivnet-linux-amd64-3.0.1
 sudo install -o root -g root -m 0755 $DOWNLOADS/pivnet /usr/local/bin/pivnet
 
-"Installing tanzu CLI"
+log "Installing tanzu CLI"
 
 read -p 'Tanzu Network UAA Refresh Token: ' PIVNET_TOKEN
 pivnet login --api-token="$PIVNET_TOKEN"
