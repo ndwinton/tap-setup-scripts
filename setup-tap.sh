@@ -229,9 +229,17 @@ echo "(Preparing to copy images)"
 imgpkg copy -b "registry.pivotal.io/build-service/bundle:1.2.2" --to-repo $REGISTRY
 imgpkg pull -b $REGISTRY:1.2.2 -o ./bundle
 
+if [[ -z "$REG_HOST" ]]
+then
+  # Special case handling for DockerHub
+  DOCKER_REPOSITORY="${REGISTRY%%/*}"
+else
+  DOCKER_REPOSITORY="$REGISTRY"
+fi
+
 ytt -f ./bundle/values.yaml \
   -f ./bundle/config/ \
-  -v docker_repository="$REGISTRY" \
+  -v docker_repository="$DOCKER_REPOSITORY" \
   -v docker_username="$REG_USERNAME" \
   -v docker_password="$REG_PASSWORD" | \
   kbld -f ./bundle/.imgpkg/images.yml -f- | \
