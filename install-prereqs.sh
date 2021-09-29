@@ -16,6 +16,7 @@ Network site. To obtain such a token:
 * Make a copy of the token
 
 EOF
+read -p "Hit return to continue: " GO
 
 function log() {
   echo ""
@@ -25,12 +26,12 @@ function log() {
 
 log "Removing any existing docker installation"
 
-sudo apt-get remove docker docker-engine docker.io containerd runc
+sudo apt-get remove -y docker docker-engine docker.io containerd runc
 
 log "Installing basic tools"
 
-sudo apt-get update
-sudo apt-get install \
+sudo apt-get update -y
+sudo apt-get install -y \
   apt-transport-https \
   ca-certificates \
   curl \
@@ -43,8 +44,8 @@ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o 
 echo \
   "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
   $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt-get update
-sudo apt-get install docker-ce docker-ce-cli containerd.io
+sudo apt-get update -y
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
 DOWNLOADS=/tmp/downloads
 mkdir -p $DOWNLOADS
@@ -61,17 +62,17 @@ sudo install -o root -g root -m 0755 $DOWNLOADS/kind /usr/local/bin/kind
 
 log "Installing carvel tools"
 
-curl -L https://carvel.dev/install.sh | bash
+curl -L https://carvel.dev/install.sh | sudo bash
 
 log "Installing kn"
 
 curl -Lo $DOWNLOADS/kn https://github.com/knative/client/releases/download/v0.26.0/kn-darwin-amd64
-sudo install -o root -g root -m 0755 $DOWNLOADS/kn
+sudo install -o root -g root -m 0755 $DOWNLOADS/kn /usr/local/bin/kn
 
 log "Installing "kp"
 
 curl -Lo $DOWNLOADS/kp https://github.com/vmware-tanzu/kpack-cli/releases/download/v0.3.1/kp-linux-0.3.1
-sudo install -o root -g root -m 0755 $DOWNLOADS/kp
+sudo install -o root -g root -m 0755 $DOWNLOADS/kp /usr/local/bin/kn
 
 log "Installing pivnet CLI"
 
