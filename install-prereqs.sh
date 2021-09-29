@@ -75,7 +75,7 @@ sudo install -o root -g root -m 0755 $DOWNLOADS/kn /usr/local/bin/kn
 log "Installing kp"
 
 curl -Lo $DOWNLOADS/kp https://github.com/vmware-tanzu/kpack-cli/releases/download/v0.3.1/kp-linux-0.3.1
-sudo install -o root -g root -m 0755 $DOWNLOADS/kp /usr/local/bin/kn
+sudo install -o root -g root -m 0755 $DOWNLOADS/kp /usr/local/bin/kp
 
 log "Installing pivnet CLI"
 
