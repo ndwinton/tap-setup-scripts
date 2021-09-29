@@ -62,7 +62,7 @@ and access to a container registry at repo.example.com/somebody):
 ```bash
 kp image create petclinic \
   --tag repo.example.com/somebody/petclinic \
-  --git https://github.com/example/spring-petclinic \
+  --git https://github.com/somebody/spring-petclinic \
   -n tap-install
 ```
 
