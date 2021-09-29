@@ -12,10 +12,11 @@ For more information see
 or the excellent
 [series of blog posts](https://tanzu.vmware.com/developer/blog/getting-started-with-vmware-tanzu-application-platform-beta-1-on-kind-part-1/).
 
-There are two scripts here:
+There are three scripts here:
 
 * `kind-with-registry.sh`
 * `setup-tap.sh`
+* `install-prereqs.sh`
 
 The first sets up a Kind cluster (named `tap`) which has port forwarding
 to ports 80, 443 and 53.
@@ -36,6 +37,9 @@ These tools are:
 * The `kp` [kpack CLI](https://github.com/vmware-tanzu/kpack-cli).
 * The `kn` [Knative CLI](https://github.com/knative/client).
 * The `tanzu` CLI from the [Tanzu Network](https://network.tanzu.vmware.com/products/tanzu-application-platform/).
+
+If you do not have these tools installed you can use the third script,
+`install-prereqs.sh` to install them.
 
 You will also need a login to the Tanzu Network and access to a Docker registry (e.g.
 DockerHub) to which you can push container images.
