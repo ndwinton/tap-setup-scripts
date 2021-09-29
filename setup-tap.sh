@@ -240,7 +240,7 @@ ytt -f ./bundle/values.yaml \
 echo ">>> Creating TBS secret and TAP service account ..."
 if [[ -z "$REG_HOST" ]]
 then
-  DOCKERHUB_PASSWORD="$REG_PASSWORD" kp secret create tbs-secret -n tap-install --dockerhub $REG_USERNAME
+  DOCKER_PASSWORD="$REG_PASSWORD" kp secret create tbs-secret -n tap-install --dockerhub $REG_USERNAME
 else
   REGISTRY_PASSWORD="$REG_PASSWORD" kp secret create tbs-secret -n tap-install --registry $REG_HOST --registry-user $REG_USERNAME
 fi
