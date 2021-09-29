@@ -62,14 +62,14 @@ sudo install -o root -g root -m 0755 $DOWNLOADS/kind /usr/local/bin/kind
 
 log "Installing carvel tools"
 
-curl -L https://carvel.dev/install.sh | sudo bash
+sudo sh -c 'curl -L https://carvel.dev/install.sh | bash'
 
 log "Installing kn"
 
 curl -Lo $DOWNLOADS/kn https://github.com/knative/client/releases/download/v0.26.0/kn-darwin-amd64
 sudo install -o root -g root -m 0755 $DOWNLOADS/kn /usr/local/bin/kn
 
-log "Installing "kp"
+log "Installing kp"
 
 curl -Lo $DOWNLOADS/kp https://github.com/vmware-tanzu/kpack-cli/releases/download/v0.3.1/kp-linux-0.3.1
 sudo install -o root -g root -m 0755 $DOWNLOADS/kp /usr/local/bin/kn
