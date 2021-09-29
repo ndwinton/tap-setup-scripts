@@ -22,7 +22,7 @@ The first sets up a Kind cluster (named `tap`) which has port forwarding
 to ports 80, 443 and 53.
 The DNS (port 53) forwarding is probably not necessary but could be used
 to hook into the cluster DNS.
-The HTTP/S ports will expose applications deployed on TAP vi `*.vcap.me`
+The HTTP/S ports will expose applications deployed on TAP via `*.vcap.me`
 URLs (all lookups of `vcap.me` addresses resolve to 127.0.0.1).
 
 The second script sets up the entire TAP installation, including
