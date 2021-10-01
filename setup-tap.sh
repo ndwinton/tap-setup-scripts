@@ -37,12 +37,12 @@ kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/rele
 echo ">>> Creating tap-install namespace ..."
 (kubectl get ns tap-install 2> /dev/null) || \
   kubectl create ns tap-install
-(kubectl get secret -n tap-install tap-registry 2> /dev/null) || \
-  kubectl create secret docker-registry tap-registry \
-    -n tap-install \
-    --docker-server='registry.pivotal.io' \
-    --docker-username="$TN_USERNAME" \
-    --docker-password="$TN_PASSWORD"
+(kubectl delete secret -n tap-install tap-registry 2> /dev/null) || true
+kubectl create secret docker-registry tap-registry \
+  -n tap-install \
+  --docker-server='registry.pivotal.io' \
+  --docker-username="$TN_USERNAME" \
+  --docker-password="$TN_PASSWORD"
 
 echo ">>> Creating TAP package repository ..."
 cat > tap-package-repo.yaml <<EOF
@@ -246,6 +246,8 @@ ytt -f ./bundle/values.yaml \
   kapp deploy -a tanzu-build-service -f- -y
 
 echo ">>> Creating TBS secret and TAP service account ..."
+
+kp secret delete tbs-secret -n tap-install 2> /dev/null || true
 if [[ -z "$REG_HOST" ]]
 then
   DOCKER_PASSWORD="$REG_PASSWORD" kp secret create tbs-secret -n tap-install --dockerhub $REG_USERNAME
