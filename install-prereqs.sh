@@ -86,11 +86,16 @@ log "Installing tanzu CLI"
 
 read -p 'Tanzu Network UAA Refresh Token: ' PIVNET_TOKEN
 pivnet login --api-token="$PIVNET_TOKEN"
-pivnet download-product-files --download-dir $DOWNLOADS --product-slug='tanzu-application-platform' --release-version='0.1.0' --product-file-id=1040320
+pivnet download-product-files --download-dir $DOWNLOADS --product-slug='tanzu-application-platform' --release-version='0.2.0' --product-file-id=1055586
 TANZU_DIR=$HOME/tanzu
 mkdir -p $TANZU_DIR
+rm -rf $TANZU_DIR/*
 tar xvf $DOWNLOADS/tanzu-cli-bundle-linux-amd64.tar -C $TANZU_DIR
-sudo install $TANZU_DIR/cli/core/v1.4.0/tanzu-core-linux_amd64 /usr/local/bin/tanzu
-tanzu plugin install --local $TANZU_DIR/cli package
+sudo install $TANZU_DIR/cli/core/v0.5.0/tanzu-core-linux_amd64 /usr/local/bin/tanzu
+export TANZU_CLI_NO_INIT=true
+tanzu plugin repo update -b tanzu-cli-framework core
+tanzu plugin clean
+tanzu plugin install --local $TANZU_DIR/cli all
+tanzu plugin list
 
 log "Done"
