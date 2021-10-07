@@ -302,7 +302,7 @@ kubectl get pods -n conventions-system
 
 log "Installing Source Controller"
 
-SC_VERSION=$(controller.source.apps.tanzu.vmware.com)
+SC_VERSION=$(packageVersion controller.source.apps.tanzu.vmware.com)
 tanzu package install source-controller -p controller.source.apps.tanzu.vmware.com \
   -v $SC_VERSION -n tap-install --poll-timeout 10m
 tanzu package installed get source-controller -n tap-install
