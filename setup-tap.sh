@@ -10,6 +10,17 @@ function log() {
   echo ""
 }
 
+function findOrPrompt() {
+  local varName="$1"
+  local prompt="$2"
+
+  if [[ -z "${!varName}" ]]
+  then
+    read -p "$prompt: " $varName
+  else
+    echo "Value for $varName found in environment"
+}
+
 TAP_VERSION=0.2.0
 
 cat <<EOT
@@ -26,21 +37,27 @@ with the necessary tooling (Carvel tools, kpack and knative clients)
 already installed, along with a Kubernetes cluster.
 
 You will need an account on the Tanzu Network (aka PivNet) and an account
-for a Docker registry, such as DockerHub or Harbor.
+for a container registry, such as DockerHub or Harbor.
+
+If set, values will be taken from TN_USERNAME and TN_PASSWORD for
+the Tanzu Network and REGISTRY, REG_USERNAME and REG_PASSWORD for
+the registry. If the value are not found in the environment they
+will be prompted for.
 
 EOT
-read -p "Tanzu Network Username: " TN_USERNAME
-read -p "Tanzu Network Password (will be echoed): " TN_PASSWORD
+findOrPrompt TN_USERNAME "Tanzu Network Username"
+findOrPrompt TN_PASSWORD "Tanzu Network Password (will be echoed)"
 
 cat <<EOT
 
-The Docker registry should be something like 'myuser/tap' for DockerHub or
+The container registry should be something like 'myuser/tap' for DockerHub or
 'harbor-repo.example.com/myuser/tap' for an internal registry.
- 
+
+Values will 
 EOT
-read -p "Docker Registry: " REGISTRY
-read -p "Registry Username: " REG_USERNAME
-read -p "Registry Password (will be echoed): " REG_PASSWORD
+findOrPrompt REGISTRY "Container Registry"
+findOrPrompt REG_USERNAME "Registry Username"
+findOrPrompt REG_PASSWORD "Registry Password (will be echoed)"
 
 REG_HOST=${REGISTRY%%/*}
 if [[ $REG_HOST != *.* ]]
@@ -64,17 +81,13 @@ kubectl get deployment cert-manager -n cert-manager -o yaml | grep -m 1 'app.kub
 log "Deploying FluxCD source-controller ..."
 (kubectl get ns flux-system 2> /dev/null) || \
   kubectl create namespace flux-system
+(kubectl get clusterrolebinding default-admin 2> /dev/null) || \
 kubectl create clusterrolebinding default-admin \
   --clusterrole=cluster-admin \
   --serviceaccount=flux-system:default
-kapp deploy -a flux-source-controller -n flux-system \
+kapp deploy -a flux-source-controller -n flux-system -y \
   -f https://github.com/fluxcd/source-controller/releases/download/v0.15.4/source-controller.crds.yaml \
   -f https://github.com/fluxcd/source-controller/releases/download/v0.15.4/source-controller.deployment.yaml
-
-# Remove flux networkpolicies (known to cause problems with Traefik)
-kubectl delete networkpolicy allow-egress -n flux-system
-kubectl delete networkpolicy allow-scraping -n flux-system
-kubectl delete networkpolicy allow-webhooks -n flux-system
 
 log "Creating tap-install namespace ..."
 (kubectl get ns tap-install 2> /dev/null) || \
