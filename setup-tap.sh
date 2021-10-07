@@ -22,6 +22,10 @@ function findOrPrompt() {
   fi
 }
 
+find packageVersion() {
+  tanzu package available list $1 -n tap-install -o json | jq -r '.[0].version'
+}
+
 TAP_VERSION=0.2.0
 
 cat <<EOT
@@ -127,8 +131,9 @@ local_dns:
   domain: "vcap.me"
 EOF
 
+CNR_VERSION=$(packageVersion cnrs.tanzu.vmware.com)
 tanzu package install cloud-native-runtimes -p cnrs.tanzu.vmware.com \
-  -v 1.0.2 -n tap-install -f cnr-values.yaml --poll-timeout 10m
+  -v $CNR_VERSION -n tap-install -f cnr-values.yaml --poll-timeout 10m
 tanzu package installed get cloud-native-runtimes -n tap-install
 # For more detailed information, use the following:
 #  kapp inspect -n tap-install -a cloud-native-runtimes-ctrl -y
@@ -164,8 +169,9 @@ server:
   watched_namespace: "default"
 EOF
 
+AA_VERSION=$(packageVersion accelerator.apps.tanzu.vmware.com)
 tanzu package install app-accelerator -p accelerator.apps.tanzu.vmware.com \
-  -v 0.3.0 -n tap-install -f app-accelerator-values.yaml --poll-timeout 10m
+  -v $AA_VERSION -n tap-install -f app-accelerator-values.yaml --poll-timeout 10m
 tanzu package installed get app-accelerator -n tap-install
 # kapp inspect -n tap-install -a app-accelerator-ctrl
 
@@ -288,15 +294,17 @@ EOF
 
 log "Installing Convention Controller"
 
+CC_VERSION=$(packageVersion controller.conventions.apps.tanzu.vmware.com)
 tanzu package install convention-controller -p controller.conventions.apps.tanzu.vmware.com \
-  -v 0.4.2 -n tap-install --poll-timeout 10m
+  -v $CC_VERSION -n tap-install --poll-timeout 10m
 tanzu package installed get convention-controller -n tap-install
 kubectl get pods -n conventions-system
 
 log "Installing Source Controller"
 
-tanzu package install source-controller -p controller.source.apps.tanzu.vmware.com -v 0.1.2 \
-  -n tap-install --poll-timeout 10m
+SC_VERSION=$(controller.source.apps.tanzu.vmware.com)
+tanzu package install source-controller -p controller.source.apps.tanzu.vmware.com \
+  -v $SC_VERSION -n tap-install --poll-timeout 10m
 tanzu package installed get source-controller -n tap-install
 kubectl get pods -n source-system
 
@@ -311,16 +319,18 @@ tanzunet_username: "$TN_USERNAME"
 tanzunet_password: "$TN_PASSWORD"
 EOF
 
+BS_VERSION=$(packageVersion buildservice.tanzu.vmware.com)
 tanzu package install tbs -p buildservice.tanzu.vmware.com \
-  -v 1.3.0 -n tap-install -f tbs-values.yaml --poll-timeout 30m
-tanzu package installed get buildservice.tanzu.vmware.com -n tap-install
+  -v $BS_VERSION -n tap-install -f tbs-values.yaml --poll-timeout 30m
+tanzu package installed get tbs -n tap-install
 
 log "Installing Supply Chain Choreographer (Cartographer)"
 
+SCC_VERSION=$(packageVersion cartographer.tanzu.vmware.com)
 tanzu package install cartographer \
   --namespace tap-install \
   --package-name cartographer.tanzu.vmware.com \
-  --version 0.0.6 \
+  --version $SCC_VERSION \
   --poll-timeout 10m
 
 log "Creating Default Supply Chain"
@@ -340,18 +350,20 @@ tanzu imagepullsecret add registry-credentials \
   --password "$REG_PASSWORD" \
   --export-to-all-namespaces || true
 
+DSC_VERSION=$(packageVersion default-supply-chain.tanzu.vmware.com)
 tanzu package install default-supply-chain \
    --package-name default-supply-chain.tanzu.vmware.com \
-   --version 0.2.0 \
+   --version $DSC_VERSION \
    --namespace tap-install \
    --values-file default-supply-chain-values.yaml \
   --poll-timeout 10m
 
 log "Installing Developer Conventions"
 
+DC_VERSION=$(packageVersion developer-conventions.tanzu.vmware.com)
 tanzu package install developer-conventions \
   --package-name developer-conventions.tanzu.vmware.com \
-  --version 0.2.0 \
+  --version $DC_VERSION \
   --namespace tap-install \
   --poll-timeout 10m
 
@@ -366,15 +378,17 @@ EOF
 (kubectl get ns app-live-view 2> /dev/null) || \
   kubectl create ns app-live-view
 
+ALV_VERSION=$(packageVersion appliveview.tanzu.vmware.com)
 tanzu package install app-live-view \
-  -p appliveview.tanzu.vmware.com -v 0.2.0 -n tap-install \
+  -p appliveview.tanzu.vmware.com -v $ALV_VERSION -n tap-install \
   -f app-live-view-values.yaml --poll-timeout 10m
 tanzu package installed get app-live-view -n tap-install
 
 log "Installing Service Bindings"
 
+SB_VERSION=$(packageVersion service-bindings.labs.vmware.com)
 tanzu package install service-bindings -p service-bindings.labs.vmware.com \
-  -v 0.5.0 -n tap-install  --poll-timeout 10m
+  -v $SB_VERSION -n tap-install --poll-timeout 10m
 tanzu package installed get service-bindings -n tap-install
 kubectl get pods -n service-bindings
 
@@ -384,9 +398,10 @@ cat > scst-store-values.yaml <<EOF
 db_password: "PASSWORD-0123"
 EOF
 
+SCST_VERSION=$(packageVersion scst-store.tanzu.vmware.com)
 tanzu package install metadata-store \
   --package-name scst-store.tanzu.vmware.com \
-  --version 1.0.0-beta.0 \
+  --version $SCST_VERSION \
   --namespace tap-install \
   --values-file scst-store-values.yaml \
    --poll-timeout 10m
@@ -398,9 +413,10 @@ cat > scst-sign-values.yaml <<EOF
 warn_on_unmatched: true
 EOF
 
+IPW_VERSION=$(packageVersion image-policy-webhook.signing.run.tanzu.vmware.com)
 tanzu package install image-policy-webhook \
   --package-name image-policy-webhook.signing.run.tanzu.vmware.com \
-  --version 1.0.0-beta.0 \
+  --version $IPW_VERSION \
   --namespace tap-install \
   --values-file scst-sign-values.yaml \
   --poll-timeout 10m
@@ -495,9 +511,11 @@ EOF
 
 (kubectl create namespace scan-link-system 2> /dev/null) || true
 kubectl apply -f metadata-store-secret.yaml
+
+SCAN_VERSION=$(packageVersion scanning.apps.tanzu.vmware.com)
 tanzu package install scan-controller \
   --package-name scanning.apps.tanzu.vmware.com \
-  --version 1.0.0-beta \
+  --version $SCAN_VERSION \
   --namespace tap-install \
   --values-file scst-scan-controller-values.yaml \
   --poll-timeout 10m
@@ -505,21 +523,24 @@ tanzu package installed get scan-controller -n tap-install
 
 log "Installing Supply Chain Security Tools - Scan (Grype Scanner)"
 
+GRYPE_VERSION=$(packageVersion grype.scanning.apps.tanzu.vmware.com)
 tanzu package install grype-scanner \
   --package-name grype.scanning.apps.tanzu.vmware.com \
-  --version 1.0.0-beta \
+  --version $GRYPE_VERSION \
   --namespace tap-install \
   --poll-timeout 10m
 tanzu package installed get grype-scanner -n tap-install
 
 log "Installing API portal"
 
-tanzu package install api-portal -n tap-install -p api-portal.tanzu.vmware.com -v 1.0.2 --poll-timeout 10m
-tanzu package installed get api-portal-n tap-install
+APIP_VERSION=$(packageVersion api-portal.tanzu.vmware.com)
+tanzu package install api-portal -n tap-install -p api-portal.tanzu.vmware.com -v $APIP_VERSION --poll-timeout 10m
+tanzu package installed get api-portal -n tap-install
 
 log "Installing Services Control Plane (SCP) Toolkit"
 
-tanzu package install scp-toolkit -n tap-install -p scp-toolkit.tanzu.vmware.com -v 0.3.0
+SCPT_VERSION=$(packageVersion scp-toolkit.tanzu.vmware.com)
+tanzu package install scp-toolkit -n tap-install -p scp-toolkit.tanzu.vmware.com -v $SCPT_VERSION
 tanzu package installed get scp-toolkit -n tap-install
 
 # kubectl describe service/application-live-view-7000 -n tap-install
