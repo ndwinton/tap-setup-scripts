@@ -102,11 +102,15 @@ tanzu imagepullsecret add tap-registry \
 
 log "Adding TAP package repository"
 tanzu package repository delete tanzu-tap-repository -n tap-install || true
+while [[ -n $(tanzu package repository get tanzu-tap-repository -n tap-install -o json 2> /dev/null)]]
+do
+  sleep 5
+done
 tanzu package repository add tanzu-tap-repository \
     --url registry.tanzu.vmware.com/tanzu-application-platform/tap-packages:$TAP_VERSION \
     --namespace tap-install
 tanzu package repository get tanzu-tap-repository --namespace tap-install
-while [[ $(tanzu package available list --namespace tap-install -o json) == '\[\]' ]]
+while [[ $(tanzu package available list --namespace tap-install -o json) == '[]' ]]
 do
   echo "Waiting for packages ..."
   sleep 5
@@ -146,6 +150,7 @@ EOF
 
 log "Creating pull-secret for default namespace and patching default service account ..."
 
+kubectl delete secret pull-secret 2> /dev/null || true
 kubectl create secret generic pull-secret --from-literal='.dockerconfigjson={}' --type=kubernetes.io/dockerconfigjson
 kubectl annotate secret pull-secret secretgen.carvel.dev/image-pull-secret=""
 kubectl patch serviceaccount default -p '{"imagePullSecrets": [{"name": "pull-secret"}]}'
@@ -496,6 +501,12 @@ tanzu package install grype-scanner \
   --version 1.0.0-beta \
   --namespace tap-install \
   --poll-timeout 10m
+
+log "Installing API portal"
+
+tanzu package install api-portal -n tap-install -p api-portal.tanzu.vmware.com -v 1.0.2 --poll-timeout 10m
+
+log "Installing Services Control Plane (SCP) Toolkit"
 
 # kubectl describe service/application-live-view-7000 -n tap-install
 # kubectl describe service/application-live-view-5112 -n tap-install
