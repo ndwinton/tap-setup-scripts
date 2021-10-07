@@ -54,7 +54,6 @@ cat <<EOT
 The container registry should be something like 'myuser/tap' for DockerHub or
 'harbor-repo.example.com/myuser/tap' for an internal registry.
 
-Values will 
 EOT
 findOrPrompt REGISTRY "Container Registry"
 findOrPrompt REG_USERNAME "Registry Username"
@@ -67,19 +66,19 @@ then
   REG_HOST='index.docker.io'
 fi
 
-log "Deploying kapp-controller ..."
+log "Deploying kapp-controller"
 kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/releases/latest/download/release.yml -y
 kubectl get deployment kapp-controller -n kapp-controller  -o yaml | grep kapp-controller.carvel.dev/version:
 
-log "Deploying secretgen-controller ..."
+log "Deploying secretgen-controller"
 kapp deploy -a sg -f https://github.com/vmware-tanzu/carvel-secretgen-controller/releases/latest/download/release.yml -y
 kubectl get deployment secretgen-controller -n secretgen-controller -o yaml | grep secretgen-controller.carvel.dev/version:
 
-log "Deploying cert-manager ..."
+log "Deploying cert-manager"
 kapp deploy -a cert-manager -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml -y
 kubectl get deployment cert-manager -n cert-manager -o yaml | grep -m 1 'app.kubernetes.io/version: v'
 
-log "Deploying FluxCD source-controller ..."
+log "Deploying FluxCD source-controller"
 (kubectl get ns flux-system 2> /dev/null) || \
   kubectl create namespace flux-system
 (kubectl get clusterrolebinding default-admin 2> /dev/null) || \
@@ -90,17 +89,18 @@ kapp deploy -a flux-source-controller -n flux-system -y \
   -f https://github.com/fluxcd/source-controller/releases/download/v0.15.4/source-controller.crds.yaml \
   -f https://github.com/fluxcd/source-controller/releases/download/v0.15.4/source-controller.deployment.yaml
 
-log "Creating tap-install namespace ..."
+log "Creating tap-install namespace"
 (kubectl get ns tap-install 2> /dev/null) || \
   kubectl create ns tap-install
 
-log "Creating tap-registry imagepullsecret ..."
+log "Creating tap-registry imagepullsecret"
+tanzu imagepullsecret delete tap-registry --namespace tap-install || true
 tanzu imagepullsecret add tap-registry \
   --username "$TN_USERNAME" --password "$TN_PASSWORD" \
   --registry registry.tanzu.vmware.com \
   --export-to-all-namespaces --namespace tap-install
 
-log "Adding TAP package repository ..."
+log "Adding TAP package repository"
 tanzu package repository add tanzu-tap-repository \
     --url registry.tanzu.vmware.com/tanzu-application-platform/tap-packages:$TAP_VERSION \
     --namespace tap-install
