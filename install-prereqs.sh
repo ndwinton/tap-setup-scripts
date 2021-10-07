@@ -36,7 +36,8 @@ sudo apt-get install -y \
   ca-certificates \
   curl \
   gnupg \
-  lsb-release
+  lsb-release \
+  jq
 
 log "Installing new version of docker"
 
