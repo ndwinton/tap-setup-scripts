@@ -22,7 +22,7 @@ function findOrPrompt() {
   fi
 }
 
-find packageVersion() {
+function packageVersion() {
   tanzu package available list $1 -n tap-install -o json | jq -r '.[0].version'
 }
 
