@@ -54,11 +54,11 @@ kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/rele
 kubectl get deployment kapp-controller -n kapp-controller  -o yaml | grep kapp-controller.carvel.dev/version:
 
 log "Deploying secretgen-controller ..."
-kapp deploy -a sg -f https://github.com/vmware-tanzu/carvel-secretgen-controller/releases/latest/download/release.yml
-kubectl get deployment secretgen-controller -n sg -o yaml | grep secretgen-controller.carvel.dev/version:
+kapp deploy -a sg -f https://github.com/vmware-tanzu/carvel-secretgen-controller/releases/latest/download/release.yml -y
+kubectl get deployment secretgen-controller -n secretgen-controller -o yaml | grep secretgen-controller.carvel.dev/version:
 
 log "Deploying cert-manager ..."
-kapp deploy -a cert-manager -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
+kapp deploy -a cert-manager -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml -y
 kubectl get deployment cert-manager -n cert-manager -o yaml | grep -m 1 'app.kubernetes.io/version: v'
 
 log "Deploying FluxCD source-controller ..."
