@@ -94,18 +94,23 @@ log "Creating tap-install namespace"
   kubectl create ns tap-install
 
 log "Creating tap-registry imagepullsecret"
-tanzu imagepullsecret delete tap-registry --namespace tap-install || true
+tanzu imagepullsecret delete tap-registry --namespace tap-install -y || true
 tanzu imagepullsecret add tap-registry \
   --username "$TN_USERNAME" --password "$TN_PASSWORD" \
   --registry registry.tanzu.vmware.com \
   --export-to-all-namespaces --namespace tap-install
 
 log "Adding TAP package repository"
+tanzu package repository delete tanzu-tap-repository -n tap-install || true
 tanzu package repository add tanzu-tap-repository \
     --url registry.tanzu.vmware.com/tanzu-application-platform/tap-packages:$TAP_VERSION \
     --namespace tap-install
-
 tanzu package repository get tanzu-tap-repository --namespace tap-install
+while [[ $(tanzu package available list --namespace tap-install -o json) == '\[\]' ]]
+do
+  echo "Waiting for packages ..."
+  sleep 5
+done
 tanzu package available list --namespace tap-install
 
 log "Deploying Cloud Native Runtime ..."
