@@ -450,11 +450,13 @@ EOF
 kubectl delete pod cosign --force --grace-period=0 2> /dev/null || true
 kubectl delete pod bb --force --grace-period=0 2> /dev/null || true
 
+echo "The cosign pod should be created without a warning"
 kubectl run cosign --image=gcr.io/projectsigstore/cosign:v1.2.1 --restart=Never --command -- sleep 5
-kubectl run bb --image=busybox --restart=Never -- sleep 5
+echo "The busybox pod should generate a warning"
+kubectl run busybox --image=busybox --restart=Never -- sleep 5
 
 kubectl delete pod cosign --force --grace-period=0 2> /dev/null || true
-kubectl delete pod bb --force --grace-period=0 2> /dev/null || true
+kubectl delete pod busybox --force --grace-period=0 2> /dev/null || true
 
 log "Installing Supply Chain Security Tools - Scan"
 
@@ -489,7 +491,7 @@ stringData:
   token: $STORE_TOKEN
 EOF
 
-kubectl create namespace scan-link-system
+(kubectl create namespace scan-link-system 2> /dev/null) || true
 kubectl apply -f metadata-store-secret.yaml
 tanzu package install scan-controller \
   --package-name scanning.apps.tanzu.vmware.com \
@@ -497,6 +499,7 @@ tanzu package install scan-controller \
   --namespace tap-install \
   --values-file scst-scan-controller-values.yaml \
   --poll-timeout 10m
+tanzu package installed get scan-controller -n tap-install
 
 log "Installing Supply Chain Security Tools - Scan (Grype Scanner)"
 
@@ -505,15 +508,35 @@ tanzu package install grype-scanner \
   --version 1.0.0-beta \
   --namespace tap-install \
   --poll-timeout 10m
+tanzu package installed get grype-scanner -n tap-install
 
 log "Installing API portal"
 
 tanzu package install api-portal -n tap-install -p api-portal.tanzu.vmware.com -v 1.0.2 --poll-timeout 10m
+tanzu package installed get api-portal-n tap-install
 
 log "Installing Services Control Plane (SCP) Toolkit"
 
+tanzu package install scp-toolkit -n tap-install -p scp-toolkit.tanzu.vmware.com -v 0.3.0
+tanzu package installed get scp-toolkit -n tap-install
+
 # kubectl describe service/application-live-view-7000 -n tap-install
 # kubectl describe service/application-live-view-5112 -n tap-install
+
+log "Checking state of all packages"
+
+tanzu package installed list --namespace tap-install -o json | \
+  jq -r '.[] | (.name + " " .status)' | \
+  while read package status
+  do
+    if [[ $status != "Reconcile succeeded" ]]
+    then
+      echo "ERROR: At least one package failed to reconcile" >&2
+      tanzu package installed list --namespace tap-install
+      exit 1
+    fi
+
+exit 0
 
 echo ">>> Setting up port forwarding for App Accelerator (http://localhost:8877) ..."
 kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
