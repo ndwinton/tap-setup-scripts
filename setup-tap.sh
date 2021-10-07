@@ -19,6 +19,7 @@ function findOrPrompt() {
     read -p "$prompt: " $varName
   else
     echo "Value for $varName found in environment"
+  fi
 }
 
 TAP_VERSION=0.2.0
