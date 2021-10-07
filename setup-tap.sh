@@ -102,7 +102,7 @@ tanzu imagepullsecret add tap-registry \
 
 log "Adding TAP package repository"
 tanzu package repository delete tanzu-tap-repository -n tap-install || true
-while [[ -n $(tanzu package repository get tanzu-tap-repository -n tap-install -o json 2> /dev/null)]]
+while [[ -n $(tanzu package repository get tanzu-tap-repository -n tap-install -o json 2> /dev/null) ]]
 do
   sleep 5
 done
@@ -355,11 +355,15 @@ tanzu package install developer-conventions \
   --poll-timeout 10m
 
 echo "Installing App Live View"
+
 cat > app-live-view-values.yaml <<EOF
 ---
 connector_namespaces: [default]
 server_namespace: app-live-view
 EOF
+
+(kubectl get ns app-live-view 2> /dev/null) || \
+  kubectl create ns app-live-view
 
 tanzu package install app-live-view \
   -p appliveview.tanzu.vmware.com -v 0.2.0 -n tap-install \
