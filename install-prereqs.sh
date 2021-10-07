@@ -90,7 +90,7 @@ pivnet download-product-files --download-dir $DOWNLOADS --product-slug='tanzu-ap
 TANZU_DIR=$HOME/tanzu
 mkdir -p $TANZU_DIR
 rm -rf $TANZU_DIR/*
-tar xvf $DOWNLOADS/tanzu-cli-bundle-linux-amd64.tar -C $TANZU_DIR
+tar xvf $DOWNLOADS/tanzu-framework-linux-amd64.tar -C $TANZU_DIR
 sudo install $TANZU_DIR/cli/core/v0.5.0/tanzu-core-linux_amd64 /usr/local/bin/tanzu
 export TANZU_CLI_NO_INIT=true
 tanzu plugin repo update -b tanzu-cli-framework core
