@@ -2,8 +2,26 @@
 
 set -e
 
+function log() {
+  echo ""
+  echo ">>>"
+  echo ">>> $*"
+  echo ">>>"
+  echo ""
+}
+
+TAP_VERSION=0.2.0
+
 cat <<EOT
-This script will set up Tanzu Application Platform (Beta 1) on a machine
+WARNING: This script is a work-in-progress for TAP Beta 2.
+For a working Beta 1 install check out the `beta-1-setup` tag.
+
+This script is not yet finished. It will fail in unexpected ways.
+It could damage your system. It may ruin your day. Use at your
+own risk.
+---------
+
+This script will set up Tanzu Application Platform ($TAP_VERSION) on a machine
 with the necessary tooling (Carvel tools, kpack and knative clients)
 already installed, along with a Kubernetes cluster.
 
@@ -12,7 +30,7 @@ for a Docker registry, such as DockerHub or Harbor.
 
 EOT
 read -p "Tanzu Network Username: " TN_USERNAME
-read -sp "Tanzu Network Password: " TN_PASSWORD
+read -p "Tanzu Network Password (will be echoed): " TN_PASSWORD
 
 cat <<EOT
 
@@ -22,73 +40,77 @@ The Docker registry should be something like 'myuser/tap' for DockerHub or
 EOT
 read -p "Docker Registry: " REGISTRY
 read -p "Registry Username: " REG_USERNAME
-read -sp "Registry Password: " REG_PASSWORD
+read -p "Registry Password (will be echoed): " REG_PASSWORD
 
 REG_HOST=${REGISTRY%%/*}
 if [[ $REG_HOST != *.* ]]
 then
   # Using DockerHub
-  REG_HOST=''
+  REG_HOST='index.docker.io'
 fi
 
-echo ">>> Deploying kapp controller ..."
+log "Deploying kapp-controller ..."
 kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/releases/latest/download/release.yml -y
+kubectl get deployment kapp-controller -n kapp-controller  -o yaml | grep kapp-controller.carvel.dev/version:
 
-echo ">>> Creating tap-install namespace ..."
+log "Deploying secretgen-controller ..."
+kapp deploy -a sg -f https://github.com/vmware-tanzu/carvel-secretgen-controller/releases/latest/download/release.yml
+kubectl get deployment secretgen-controller -n sg -o yaml | grep secretgen-controller.carvel.dev/version:
+
+log "Deploying cert-manager ..."
+kapp deploy -a cert-manager -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
+kubectl get deployment cert-manager -n cert-manager -o yaml | grep -m 1 'app.kubernetes.io/version: v'
+
+log "Deploying FluxCD source-controller ..."
+(kubectl get ns flux-system 2> /dev/null) || \
+  kubectl create namespace flux-system
+kubectl create clusterrolebinding default-admin \
+  --clusterrole=cluster-admin \
+  --serviceaccount=flux-system:default
+kapp deploy -a flux-source-controller -n flux-system \
+  -f https://github.com/fluxcd/source-controller/releases/download/v0.15.4/source-controller.crds.yaml \
+  -f https://github.com/fluxcd/source-controller/releases/download/v0.15.4/source-controller.deployment.yaml
+
+# Remove flux networkpolicies (known to cause problems with Traefik)
+kubectl delete networkpolicy allow-egress -n flux-system
+kubectl delete networkpolicy allow-scraping -n flux-system
+kubectl delete networkpolicy allow-webhooks -n flux-system
+
+log "Creating tap-install namespace ..."
 (kubectl get ns tap-install 2> /dev/null) || \
   kubectl create ns tap-install
-kubectl create secret docker-registry tap-registry \
-  -n tap-install \
-  --docker-server='registry.pivotal.io' \
-  --docker-username="$TN_USERNAME" \
-  --docker-password="$TN_PASSWORD" \
-  --dry-run=client -o yaml > tap-registry-secret.yaml
-kubectl apply -f tap-registry-secret.yaml
 
-echo ">>> Creating TAP package repository ..."
-cat > tap-package-repo.yaml <<EOF
-apiVersion: packaging.carvel.dev/v1alpha1
-kind: PackageRepository
-metadata:
-  name: tanzu-tap-repository
-spec:
-  fetch:
-    imgpkgBundle:
-      image: registry.pivotal.io/tanzu-application-platform/tap-packages:0.1.0
-      secretRef:
-        name: tap-registry
-EOF
-kapp deploy -a tap-package-repo -n tap-install -f ./tap-package-repo.yaml -y
-tanzu package repository list -n tap-install
+log "Creating tap-registry imagepullsecret ..."
+tanzu imagepullsecret add tap-registry \
+  --username "$TN_USERNAME" --password "$TN_PASSWORD" \
+  --registry registry.tanzu.vmware.com \
+  --export-to-all-namespaces --namespace tap-install
 
-echo ">>> Deploying Cloud Native Runtime ..."
+log "Adding TAP package repository ..."
+tanzu package repository add tanzu-tap-repository \
+    --url registry.tanzu.vmware.com/tanzu-application-platform/tap-packages:$TAP_VERSION \
+    --namespace tap-install
+
+tanzu package repository get tanzu-tap-repository --namespace tap-install
+tanzu package available list --namespace tap-install
+
+log "Deploying Cloud Native Runtime ..."
 cat > cnr-values.yaml <<EOF
 ---
-registry:
- server: "registry.pivotal.io"
- username: "$TN_USERNAME"
- password: "$TN_PASSWORD"
-
-provider: "local"
-pdb:
- enable: "true"
-
-ingress:
- reuse_crds:
- external:
-   namespace:
- internal:
-   namespace:    
+provider: "local"   
 
 local_dns:
   enable: "true"
   domain: "vcap.me"
 EOF
 
-tanzu package install cloud-native-runtimes -p cnrs.tanzu.vmware.com -v 1.0.1 -n tap-install -f cnr-values.yaml --poll-timeout 10m
-kapp inspect -n tap-install -a cloud-native-runtimes-ctrl -y
+tanzu package install cloud-native-runtimes -p cnrs.tanzu.vmware.com \
+  -v 1.0.2 -n tap-install -f cnr-values.yaml --poll-timeout 10m
+tanzu package installed get cloud-native-runtimes -n tap-install
+# For more detailed information, use the following:
+#  kapp inspect -n tap-install -a cloud-native-runtimes-ctrl -y
 
-echo ">>> Setting CNR (knative) domain to vcap.me ..."
+log "Setting CNR (knative) domain to vcap.me ..."
 
 cat > vcap-me.yaml <<EOF
 apiVersion: v1
@@ -100,38 +122,30 @@ metadata:
   namespace: knative-serving
 EOF
 
-kubectl apply -f vcap-me.yaml
+# TODO: Verify if next command is needed
+#  kubectl apply -f vcap-me.yaml
 
-echo ">>> Deploying Flux ..."
-kapp deploy -a flux -f https://github.com/fluxcd/flux2/releases/download/v0.15.0/install.yaml -y
+log "Creating pull-secret for default namespace and patching default service account ..."
 
-# Remove flux networkpolicies (known to cause problems with Traefik)
-kubectl delete networkpolicy allow-egress -n flux-system
-kubectl delete networkpolicy allow-scraping -n flux-system
-kubectl delete networkpolicy allow-webhooks -n flux-system
+kubectl create secret generic pull-secret --from-literal='.dockerconfigjson={}' --type=kubernetes.io/dockerconfigjson
+kubectl annotate secret pull-secret secretgen.carvel.dev/image-pull-secret=""
+kubectl patch serviceaccount default -p '{"imagePullSecrets": [{"name": "pull-secret"}]}'
 
-echo ">>> Deploying App Accelerator ..."
+log "Deploying App Accelerator ..."
 cat > app-accelerator-values.yaml <<EOF
 ---
-registry:
-  server: "registry.pivotal.io"
-  username: "$TN_USERNAME"
-  password: "$TN_PASSWORD"
 server:
   # Set this service_type to "NodePort" for local clusters like minikube.
   service_type: "NodePort"
   watched_namespace: "default"
-  engine_invocation_url: "http://acc-engine.accelerator-system.svc.cluster.local/invocations"
-engine:
-  service_type: "ClusterIP"
 EOF
 
-tanzu package install app-accelerator -p accelerator.apps.tanzu.vmware.com -v 0.2.0 -n tap-install -f app-accelerator-values.yaml --poll-timeout 10m
-kapp inspect -n tap-install -a app-accelerator-ctrl
-#kubectl get all -n accelerator-system
-#kubectl -n accelerator-system describe service acc-ui-server
+tanzu package install app-accelerator -p accelerator.apps.tanzu.vmware.com \
+  -v 0.3.0 -n tap-install -f app-accelerator-values.yaml --poll-timeout 10m
+tanzu package installed get app-accelerator -n tap-install
+# kapp inspect -n tap-install -a app-accelerator-ctrl
 
-cat > sample-accelerators-0-2.yaml <<EOF
+cat > sample-accelerators.yaml <<EOF
 ---
 apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
 kind: Accelerator
@@ -142,7 +156,7 @@ spec:
     url: https://github.com/sample-accelerators/new-accelerator
     ref:
       branch: main
-      tag: v0.2.x
+      tag: tap-beta2
 ---
 apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
 kind: Accelerator
@@ -153,7 +167,7 @@ spec:
     url: https://github.com/sample-accelerators/hello-fun
     ref:
       branch: main
-      tag: v0.2.x
+      tag: tap-beta2
 ---
 apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
 kind: Accelerator
@@ -164,7 +178,7 @@ spec:
     url: https://github.com/sample-accelerators/hello-ytt
     ref:
       branch: main
-      tag: v0.2.x
+      tag: tap-beta2
 ---
 apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
 kind: Accelerator
@@ -176,7 +190,7 @@ spec:
     url: https://github.com/sample-accelerators/spring-petclinic
     ref:
       branch: main
-      tag: v0.2.x
+      tag: tap-beta2
 ---
 apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
 kind: Accelerator
@@ -187,32 +201,242 @@ spec:
     url: https://github.com/sample-accelerators/spring-sql-jpa
     ref:
       branch: main
-      tag: v0.2.x
+      tag: tap-beta2
 ---
 apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
 kind: Accelerator
 metadata:
-  name: node-accelerator
+  name: node-express
 spec:
   git:
-    url: https://github.com/sample-accelerators/node-accelerator
+    url: https://github.com/sample-accelerators/node-express
     ref:
       branch: main
-      tag: v0.2.x
+      tag: tap-beta2
+---
+apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
+kind: Accelerator
+metadata:
+  name: weatherforecast-steeltoe
+spec:
+  git:
+    url: https://github.com/sample-accelerators/steeltoe-weatherforecast.git
+    ref:
+      branch: main
+      tag: tap-beta2
+---
+apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
+kind: Accelerator
+metadata:
+  name: weatherforecast-csharp
+spec:
+  git:
+    url: https://github.com/sample-accelerators/csharp-weatherforecast.git
+    ref:
+      branch: main
+      tag: tap-beta2
+---
+apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
+kind: Accelerator
+metadata:
+  name: weatherforecast-fsharp
+spec:
+  git:
+    url: https://github.com/sample-accelerators/fsharp-weatherforecast.git
+    ref:
+      branch: main
+      tag: tap-beta2
+---
+apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
+kind: Accelerator
+metadata:
+  name: tanzu-java-web-app
+spec:
+  git:
+    url: https://github.com/sample-accelerators/tanzu-java-web-app.git
+    ref:
+      branch: main
+      tag: tap-beta2
 EOF
 
-kubectl apply -f sample-accelerators-0-2.yaml 
+kubectl apply -f sample-accelerators.yaml 
 
-echo ">>> Installing App Live View ..."
-cat > app-live-view-values.yaml <<EOF
+log "Installing Convention Controller"
+
+tanzu package install convention-controller -p controller.conventions.apps.tanzu.vmware.com \
+  -v 0.4.2 -n tap-install --poll-timeout 10m
+tanzu package installed get convention-controller -n tap-install
+kubectl get pods -n conventions-system
+
+log "Installing Source Controller"
+
+tanzu package install source-controller -p controller.source.apps.tanzu.vmware.com -v 0.1.2 \
+  -n tap-install --poll-timeout 10m
+tanzu package installed get source-controller -n tap-install
+kubectl get pods -n source-system
+
+log "Installing Tanzu Build Service"
+
+cat > tbs-values.yaml <<EOF
+---
+kp_default_repository: "$REGISTRY"
+kp_default_repository_username: "$REG_USERNAME"
+kp_default_repository_password: "$REG_PASSWORD"
+tanzunet_username: "$TN_USERNAME"
+tanzunet_password: "$TN_PASSWORD"
+EOF
+
+tanzu package install tbs -p buildservice.tanzu.vmware.com \
+  -v 1.3.0 -n tap-install -f tbs-values.yaml --poll-timeout 30m
+tanzu package installed get buildservice.tanzu.vmware.com -n tap-install
+
+log "Installing Supply Chain Choreographer (Cartographer)"
+
+tanzu package install cartographer \
+  --namespace tap-install \
+  --package-name cartographer.tanzu.vmware.com \
+  --version 0.0.6 \
+  --poll-timeout 10m
+
+log "Creating Default Supply Chain"
+
+cat > default-supply-chain-values.yaml <<EOF
 ---
 registry:
-  server: "registry.pivotal.io"
-  username: "$TN_USERNAME"
-  password: "$TN_PASSWORD"
+  server: "$REG_HOST"
+  repository: "${REGISTRY##*/}"
+service_account: service-account
 EOF
 
-tanzu package install app-live-view -p appliveview.tanzu.vmware.com -v 0.1.0 -n tap-install -f app-live-view-values.yaml --poll-timeout 10m
+
+tanzu imagepullsecret add registry-credentials \
+  --registry "$REG_HOST" \
+  --username "$REG_USERNAME" \
+  --password "$REG_PASSWORD" \
+  --export-to-all-namespaces || true
+
+tanzu package install default-supply-chain \
+   --package-name default-supply-chain.tanzu.vmware.com \
+   --version 0.2.0 \
+   --namespace tap-install \
+   --values-file default-supply-chain-values.yaml \
+  --poll-timeout 10m
+
+log "Installing Developer Conventions"
+
+tanzu package install developer-conventions \
+  --package-name developer-conventions.tanzu.vmware.com \
+  --version 0.2.0 \
+  --namespace tap-install \
+  --poll-timeout 10m
+
+echo "Installing App Live View"
+cat > app-live-view-values.yaml <<EOF
+---
+connector_namespaces: [default]
+server_namespace: app-live-view
+EOF
+
+tanzu package install app-live-view \
+  -p appliveview.tanzu.vmware.com -v 0.2.0 -n tap-install \
+  -f app-live-view-values.yaml --poll-timeout 10m
+tanzu package installed get app-live-view -n tap-install
+
+log "Installing Service Bindings"
+
+tanzu package install service-bindings -p service-bindings.labs.vmware.com \
+  -v 0.5.0 -n tap-install  --poll-timeout 10m
+tanzu package installed get service-bindings -n tap-install
+kubectl get pods -n service-bindings
+
+log "Installing Supply Chain Security Tools - Store"
+
+cat > scst-store-values.yaml <<EOF
+db_password: "PASSWORD-0123"
+EOF
+
+tanzu package install metadata-store \
+  --package-name scst-store.tanzu.vmware.com \
+  --version 1.0.0-beta.0 \
+  --namespace tap-install \
+  --values-file scst-store-values.yaml \
+   --poll-timeout 10m
+
+log "Installing Supply Chain Security Tools - Sign"
+
+cat > scst-sign-values.yaml <<EOF
+---
+warn_on_unmatched: true
+EOF
+
+tanzu package install image-policy-webhook \
+  --package-name image-policy-webhook.signing.run.tanzu.vmware.com \
+  --version 1.0.0-beta.0 \
+  --namespace tap-install \
+  --values-file scst-sign-values.yaml \
+  --poll-timeout 10m
+
+log "Creating registry-credentials service account and image pull secret"
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: registry-credentials
+  namespace: image-policy-system
+imagePullSecrets:
+- name: image-pull-secret
+EOF
+
+kubectl create secret docker-registry image-pull-secret \
+  --docker-server="$REG_HOST" \
+  --docker-username="$REG_USERNAME" \
+  --docker-password="$REG_PASSWORD" \
+  --namespace image-policy-system
+
+log "Creating basic ClusterImagePolicy"
+
+cat <<EOF | kubectl apply -f -
+apiVersion: signing.run.tanzu.vmware.com/v1alpha1
+kind: ClusterImagePolicy
+metadata:
+ name: image-policy
+spec:
+ verification:
+   exclude:
+     resources:
+       namespaces:
+       - kube-system
+   keys:
+   - name: cosign-key
+     publicKey: |
+       -----BEGIN PUBLIC KEY-----
+       MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEhyQCx0E9wQWSFI9ULGwy3BuRklnt
+       IqozONbbdbqz11hlRJy9c7SG+hdcFl9jE9uE/dwtuwU2MqU9T/cN0YkWww==
+       -----END PUBLIC KEY-----
+   images:
+   - namePattern: gcr.io/projectsigstore/cosign*
+     keys:
+     - name: cosign-key
+EOF
+kubectl run cosign --it --rm --image=gcr.io/projectsigstore/cosign:v1.2.1 --restart=Never --command -- sleep 5
+kubectl run bb -it --rm --image=busybox --restart=Never -- sleep 5
+
+log "Installing Supply Chain Security Tools - Scan"
+
+cat > scst-scan-controller-values.yaml <<EOF
+---
+metadataStoreUrl: https://metadata-store-app.metadata-store.svc.cluster.local:8443
+metadataStoreCa: |-
+  -----BEGIN CERTIFICATE-----
+  MIIC8TCCAdmgAwIBAgIRAIGDgx7Dk/2unVKuT9KXetUwDQYJKoZIhvcNAQELBQAw
+  ...
+  hOSbQ50VLo+YPF9NtTPRaS7QaIcFWot0EPwBMOCZR6Dd1HU6Qg==
+  -----END CERTIFICATE-----
+metadataStoreTokenSecret: metadata-store-secret
+EOF
+
+
 # kubectl describe service/application-live-view-7000 -n tap-install
 # kubectl describe service/application-live-view-5112 -n tap-install
 
