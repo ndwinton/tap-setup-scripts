@@ -14,7 +14,7 @@ TAP_VERSION=0.2.0
 
 cat <<EOT
 WARNING: This script is a work-in-progress for TAP Beta 2.
-For a working Beta 1 install check out the `beta-1-setup` tag.
+For a working Beta 1 install check out the *beta-1-setup* tag.
 
 This script is not yet finished. It will fail in unexpected ways.
 It could damage your system. It may ruin your day. Use at your
@@ -419,23 +419,64 @@ spec:
      keys:
      - name: cosign-key
 EOF
-kubectl run cosign --it --rm --image=gcr.io/projectsigstore/cosign:v1.2.1 --restart=Never --command -- sleep 5
-kubectl run bb -it --rm --image=busybox --restart=Never -- sleep 5
+kubectl delete pod cosign --force --grace-period=0 2> /dev/null || true
+kubectl delete pod bb --force --grace-period=0 2> /dev/null || true
+
+kubectl run cosign --image=gcr.io/projectsigstore/cosign:v1.2.1 --restart=Never --command -- sleep 5
+kubectl run bb --image=busybox --restart=Never -- sleep 5
+
+kubectl delete pod cosign --force --grace-period=0 2> /dev/null || true
+kubectl delete pod bb --force --grace-period=0 2> /dev/null || true
 
 log "Installing Supply Chain Security Tools - Scan"
 
+STORE_URL=$(
+  kubectl -n metadata-store get service -o name | \
+  grep app | \
+  xargs kubectl -n metadata-store get \
+    -o jsonpath='{.spec.ports[].name}{"://"}{.metadata.name}{"."}{.metadata.namespace}{".svc.cluster.local:"}{.spec.ports[].port}'
+  )
+STORE_CA=$(kubectl get secret app-tls-cert -n metadata-store -o json | jq -r '.data."ca.crt"' | base64 -d | sed -e 's/^/  /')
 cat > scst-scan-controller-values.yaml <<EOF
 ---
-metadataStoreUrl: https://metadata-store-app.metadata-store.svc.cluster.local:8443
+metadataStoreUrl: $STORE_URL
 metadataStoreCa: |-
-  -----BEGIN CERTIFICATE-----
-  MIIC8TCCAdmgAwIBAgIRAIGDgx7Dk/2unVKuT9KXetUwDQYJKoZIhvcNAQELBQAw
-  ...
-  hOSbQ50VLo+YPF9NtTPRaS7QaIcFWot0EPwBMOCZR6Dd1HU6Qg==
-  -----END CERTIFICATE-----
+$STORE_CA
 metadataStoreTokenSecret: metadata-store-secret
 EOF
 
+STORE_TOKEN=$(
+  kubectl get secrets -n tap-install \
+    -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='metadata-store-tap-install-sa')].data.token}" | base64 -d
+)
+cat > metadata-store-secret.yaml <<EOF
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: metadata-store-secret
+  namespace: scan-link-system
+type: kubernetes.io/opaque
+stringData:
+  token: $STORE_TOKEN
+EOF
+
+kubectl create namespace scan-link-system
+kubectl apply -f metadata-store-secret.yaml
+tanzu package install scan-controller \
+  --package-name scanning.apps.tanzu.vmware.com \
+  --version 1.0.0-beta \
+  --namespace tap-install \
+  --values-file scst-scan-controller-values.yaml \
+  --poll-timeout 10m
+
+log "Installing Supply Chain Security Tools - Scan (Grype Scanner)"
+
+tanzu package install grype-scanner \
+  --package-name grype.scanning.apps.tanzu.vmware.com \
+  --version 1.0.0-beta \
+  --namespace tap-install \
+  --poll-timeout 10m
 
 # kubectl describe service/application-live-view-7000 -n tap-install
 # kubectl describe service/application-live-view-5112 -n tap-install
