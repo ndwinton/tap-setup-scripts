@@ -1,11 +1,13 @@
 ## Setting up Tanzu Application Platform on a local machine
 
-These are scripts I've used to set up Beta 1 of
-Tanzup Application Platform (TAP) on a local VM using
+These are scripts I've used to set up beta versions of
+Tanzu Application Platform (TAP) on a local VM using
 [Kind](https://kind.sigs.k8s.io/) for the Kubernetes cluster.
 
 Any machine needs to have at least 4 CPUs, 16 GB of memory and around
 30 GB of disk.
+
+**NOTE:** To set up Beta 1, check out the tag `beta-1-setup`.
 
 For more information see
 [the official documentation](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.1/tap-0-1/GUID-overview.html)
