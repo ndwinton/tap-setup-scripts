@@ -26,9 +26,10 @@ function findOrPrompt() {
   fi
 }
 
-# Get the latest version of a package (assumes ordered by date)
-function packageVersion() {
-  tanzu package available list $1 -n tap-install -o json | jq -r '.[-1].version'
+# Get the latest version of a package
+function latestVersion() {
+  tanzu package available list $1 -n tap-install -o json | \
+    jq -r 'sort_by(."released-at")[-1].version'
 }
 
 # Wait until there is no (non-error) output from a command
@@ -47,7 +48,7 @@ function installLatest() {
   local values=$3
   local timeout=${4:-10m}
 
-  local version=$(packageVersion $package)
+  local version=$(latestVersion $package)
 
   tanzu package installed update --install \
     $name -p $package -v $version \
@@ -245,15 +246,6 @@ registry:
 service_account: service-account
 EOF
 
-tanzu imagepullsecret delete registry-credentials -y || true
-waitForRemoval kubectl get secret registry-credentials -o json
-
-tanzu imagepullsecret add registry-credentials \
-  --registry "$REG_HOST" \
-  --username "$REG_USERNAME" \
-  --password "$REG_PASSWORD" \
-  --export-to-all-namespaces || true
-
 installLatest default-supply-chain \
   default-supply-chain.tanzu.vmware.com \
   default-supply-chain-values.yaml
@@ -425,7 +417,7 @@ tanzu package installed list --namespace tap-install -o json | \
   do
     if [[ $status != "Reconcile succeeded" ]]
     then
-      echo "ERROR: At least one package failed to reconcile" >&2
+      message "ERROR: At least one package failed to reconcile"
       tanzu package installed list --namespace tap-install
       exit 1
     fi
@@ -433,22 +425,19 @@ tanzu package installed list --namespace tap-install -o json | \
 
 banner "Setting up secrets, accounts and roles for default developer namespace"
 
+tanzu imagepullsecret delete registry-credentials -y || true
+waitForRemoval kubectl get secret registry-credentials -o json
+
+tanzu imagepullsecret add registry-credentials \
+  --registry "$REG_HOST" \
+  --username "$REG_USERNAME" \
+  --password "$REG_PASSWORD" || true
+
 cat > developer-namespace-setup.yaml <<EOF
-apiVersion: v1
+aapiVersion: v1
 kind: Secret
 metadata:
   name: tap-registry
-  annotations:
-    secretgen.carvel.dev/image-pull-secret: ""
-type: kubernetes.io/dockerconfigjson
-data:
-  .dockerconfigjson: e30K
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: registry-credentials
   annotations:
     secretgen.carvel.dev/image-pull-secret: ""
 type: kubernetes.io/dockerconfigjson
