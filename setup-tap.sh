@@ -175,123 +175,6 @@ tanzu package install app-accelerator -p accelerator.apps.tanzu.vmware.com \
 tanzu package installed get app-accelerator -n tap-install
 # kapp inspect -n tap-install -a app-accelerator-ctrl
 
-cat > sample-accelerators.yaml <<EOF
----
-apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
-kind: Accelerator
-metadata:
-  name: new-accelerator
-spec:
-  git:
-    url: https://github.com/sample-accelerators/new-accelerator
-    ref:
-      branch: main
-      tag: tap-beta2
----
-apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
-kind: Accelerator
-metadata:
-  name: hello-fun
-spec:
-  git:
-    url: https://github.com/sample-accelerators/hello-fun
-    ref:
-      branch: main
-      tag: tap-beta2
----
-apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
-kind: Accelerator
-metadata:
-  name: hello-ytt
-spec:
-  git:
-    url: https://github.com/sample-accelerators/hello-ytt
-    ref:
-      branch: main
-      tag: tap-beta2
----
-apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
-kind: Accelerator
-metadata:
-  name: spring-petclinic
-spec:
-  git:
-    ignore: ".git"
-    url: https://github.com/sample-accelerators/spring-petclinic
-    ref:
-      branch: main
-      tag: tap-beta2
----
-apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
-kind: Accelerator
-metadata:
-  name: spring-sql-jpa
-spec:
-  git:
-    url: https://github.com/sample-accelerators/spring-sql-jpa
-    ref:
-      branch: main
-      tag: tap-beta2
----
-apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
-kind: Accelerator
-metadata:
-  name: node-express
-spec:
-  git:
-    url: https://github.com/sample-accelerators/node-express
-    ref:
-      branch: main
-      tag: tap-beta2
----
-apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
-kind: Accelerator
-metadata:
-  name: weatherforecast-steeltoe
-spec:
-  git:
-    url: https://github.com/sample-accelerators/steeltoe-weatherforecast.git
-    ref:
-      branch: main
-      tag: tap-beta2
----
-apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
-kind: Accelerator
-metadata:
-  name: weatherforecast-csharp
-spec:
-  git:
-    url: https://github.com/sample-accelerators/csharp-weatherforecast.git
-    ref:
-      branch: main
-      tag: tap-beta2
----
-apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
-kind: Accelerator
-metadata:
-  name: weatherforecast-fsharp
-spec:
-  git:
-    url: https://github.com/sample-accelerators/fsharp-weatherforecast.git
-    ref:
-      branch: main
-      tag: tap-beta2
----
-apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
-kind: Accelerator
-metadata:
-  name: tanzu-java-web-app
-spec:
-  git:
-    url: https://github.com/sample-accelerators/tanzu-java-web-app.git
-    ref:
-      branch: main
-      tag: tap-beta2
-EOF
-
-# TODO: Confirm if needed
-# kubectl apply -f sample-accelerators.yaml 
-
 log "Installing Convention Controller"
 
 CC_VERSION=$(packageVersion controller.conventions.apps.tanzu.vmware.com)
@@ -549,7 +432,7 @@ tanzu package installed get scp-toolkit -n tap-install
 log "Checking state of all packages"
 
 tanzu package installed list --namespace tap-install -o json | \
-  jq -r '.[] | (.name + " " .status)' | \
+  jq -r '.[] | (.name + " " + .status)' | \
   while read package status
   do
     if [[ $status != "Reconcile succeeded" ]]
