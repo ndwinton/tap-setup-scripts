@@ -65,8 +65,8 @@ cat <<EOT
 WARNING: This script is a work-in-progress for TAP Beta 2.
 For a working Beta 1 install check out the *beta-1-setup* tag.
 
-This script is not yet finished. It will fail in unexpected ways.
-It could damage your system. It may ruin your day. Use at your
+This script is not yet finished. It may fail in unexpected ways.
+It could damage your system. It might ruin your day. Use at your
 own risk.
 ---------
 
@@ -194,8 +194,7 @@ metadata:
   namespace: knative-serving
 EOF
 
-# TODO: Verify if next command is needed
-#  kubectl apply -f vcap-me.yaml
+kubectl apply -f vcap-me.yaml
 
 banner "Deploying App Accelerator ..."
 cat > app-accelerator-values.yaml <<EOF
@@ -495,13 +494,32 @@ EOF
 
 kubectl apply -f developer-namespace-setup.yaml
 
-message "Setting up port forwarding for App Accelerator (http://localhost:8877) ..."
-kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
+# Allow use of Knative directly in default namespace
 
-message "Setting up port forwarding for App Live View (http://localhost:5112) ..."
-kubectl port-forward service/application-live-view-5112 5112:5112 -n tap-install &
+kubectl patch serviceaccount default \
+  -p '{"imagePullSecrets": [{"name": "registry-credentials"}, {"name": "tap-registry"}]}'
 
-message "For 'pure' knative deployment in a namespace run:"
-message "  kubectl patch serviceaccount default -p '{\"imagePullSecrets\": [{\"name\": \"registry-credentials\"}]}'"
+cat <<EOF
 
-banner "Finished"
+###
+### To set up TAP services for use in a namespace run the following:"
+###
+
+  kubectl apply -n YOUR-NAMESPACE -f $PWD/developer-namespace-setup.yaml
+
+# Add the following for 'pure' knative (kn command) use:
+
+  kubectl patch serviceaccount default \
+    -n YOUR-NAMESPACE
+    -p '{"imagePullSecrets": [{"name": "registry-credentials"}, {"name": "tap-registry"}]}'
+
+# To set up port forwarding for App Accelerator (http://localhost:8877) run:"
+
+  kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
+
+# To set up port forwarding for App Live View (http://localhost:5112) run:"
+
+  kubectl port-forward service/application-live-view-5112 5112:5112 -n app-live-view &
+EOF
+
+banner "Setup complete."
