@@ -49,7 +49,7 @@ function installLatest() {
 
   local version=$(packageVersion $package)
 
-  tanzu package update --install \
+  tanzu package installed update --install \
     $name -p $package -v $version \
     -n tap-install \
     --poll-timeout $timeout \
