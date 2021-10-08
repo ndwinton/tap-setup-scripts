@@ -70,7 +70,7 @@ sudo sh -c 'curl -L https://carvel.dev/install.sh | bash'
 
 log "Installing kn"
 
-curl -Lo $DOWNLOADS/kn https://github.com/knative/client/releases/download/v0.26.0/kn-darwin-amd64
+curl -Lo $DOWNLOADS/kn https://github.com/knative/client/releases/download/v0.26.0/kn-linux-amd64
 sudo install -o root -g root -m 0755 $DOWNLOADS/kn /usr/local/bin/kn
 
 log "Installing kp"
