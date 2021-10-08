@@ -242,7 +242,7 @@ cat > default-supply-chain-values.yaml <<EOF
 ---
 registry:
   server: "$REG_HOST"
-  repository: "${REGISTRY##*/}"
+  repository: "${REGISTRY#$REG_HOST/}"
 service_account: service-account
 EOF
 
@@ -434,7 +434,7 @@ tanzu imagepullsecret add registry-credentials \
   --password "$REG_PASSWORD" || true
 
 cat > developer-namespace-setup.yaml <<EOF
-aapiVersion: v1
+apiVersion: v1
 kind: Secret
 metadata:
   name: tap-registry
