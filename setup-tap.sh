@@ -97,10 +97,12 @@ findOrPrompt REG_USERNAME "Registry Username"
 findOrPrompt REG_PASSWORD "Registry Password (will be echoed)"
 
 REG_HOST=${REGISTRY%%/*}
+REG_BASE=$REGISTRY
 if [[ $REG_HOST != *.* ]]
 then
   # Using DockerHub
   REG_HOST='index.docker.io'
+  REG_BASE=${REGISTRY%%/*}
 fi
 
 banner "Deploying kapp-controller"
@@ -242,7 +244,7 @@ cat > default-supply-chain-values.yaml <<EOF
 ---
 registry:
   server: "$REG_HOST"
-  repository: "${REGISTRY#$REG_HOST/}"
+  repository: "$REG_BASE"
 service_account: service-account
 EOF
 
