@@ -97,7 +97,7 @@ findOrPrompt REG_USERNAME "Registry Username"
 findOrPrompt REG_PASSWORD "Registry Password (will be echoed)"
 
 REG_HOST=${REGISTRY%%/*}
-REG_BASE=$REGISTRY
+REG_BASE=${REGISTRY#*.*/}
 if [[ $REG_HOST != *.* ]]
 then
   # Using DockerHub
