@@ -410,27 +410,21 @@ banner "Installing Services Control Plane (SCP) Toolkit"
 
 installLatest scp-toolkit scp-toolkit.tanzu.vmware.com
 
-banner "Checking state of all packages"
-
-tanzu package installed list --namespace tap-install -o json | \
-  jq -r '.[] | (.name + " " + .status)' | \
-  while read package status
-  do
-    if [[ $status != "Reconcile succeeded" ]]
-    then
-      message "ERROR: At least one package failed to reconcile"
-      tanzu package installed list --namespace tap-install
-      exit 1
-    fi
-  done
-
 banner "Setting up secrets, accounts and roles for default developer namespace"
 
 tanzu imagepullsecret delete registry-credentials -y || true
 waitForRemoval kubectl get secret registry-credentials -o json
 
+# The following is a workaround for a Beta 2 bug
+if [[ "$REG_HOST" == "index.docker.io" ]]
+then
+  REG_CRED_HOST="https://index.docker.io/v1/"
+else
+  REG_CRED_HOST=$REG_HOST
+fi
+
 tanzu imagepullsecret add registry-credentials \
-  --registry "$REG_HOST" \
+  --registry "$REG_CRED_HOST" \
   --username "$REG_USERNAME" \
   --password "$REG_PASSWORD" || true
 
@@ -521,5 +515,19 @@ cat <<EOF
 
   kubectl port-forward service/application-live-view-5112 5112:5112 -n app-live-view &
 EOF
+
+banner "Checking state of all packages"
+
+tanzu package installed list --namespace tap-install -o json | \
+  jq -r '.[] | (.name + " " + .status)' | \
+  while read package status
+  do
+    if [[ $status != "Reconcile succeeded" ]]
+    then
+      message "ERROR: At least one package failed to reconcile"
+      tanzu package installed list --namespace tap-install
+      exit 1
+    fi
+  done
 
 banner "Setup complete."
