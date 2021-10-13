@@ -79,7 +79,7 @@ for a container registry, such as DockerHub or Harbor.
 
 If set, values will be taken from TN_USERNAME and TN_PASSWORD for
 the Tanzu Network and REGISTRY, REG_USERNAME and REG_PASSWORD for
-the registry. If the value are not found in the environment they
+the registry. If the values are not found in the environment they
 will be prompted for.
 
 EOT
@@ -493,6 +493,12 @@ kubectl apply -f developer-namespace-setup.yaml
 kubectl patch serviceaccount default \
   -p '{"imagePullSecrets": [{"name": "registry-credentials"}, {"name": "tap-registry"}]}'
 
+
+banner "Setting up port forwarding for App Acclerator and App Live View"
+
+kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
+kubectl port-forward service/application-live-view-5112 5112:5112 -n app-live-view &
+
 cat <<EOF
 
 ###
@@ -501,12 +507,15 @@ cat <<EOF
 
   kubectl apply -n YOUR-NAMESPACE -f $PWD/developer-namespace-setup.yaml
 
-# Add the following for 'pure' knative (kn command) use:
+# Add the following for 'pure' knative (kn command):
 
   kubectl patch serviceaccount default \
     -n YOUR-NAMESPACE
     -p '{"imagePullSecrets": [{"name": "registry-credentials"}, {"name": "tap-registry"}]}'
 
+# Port forwarding for App Accelerator and App Live View has been set up,
+# but if you need to restart it, run the following commands.
+#
 # To set up port forwarding for App Accelerator (http://localhost:8877) run:"
 
   kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
