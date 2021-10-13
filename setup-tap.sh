@@ -62,12 +62,16 @@ function installLatest() {
 TAP_VERSION=0.2.0
 
 cat <<EOT
-WARNING: This script is a work-in-progress for TAP Beta 2.
-For a working Beta 1 install check out the *beta-1-setup* tag.
+WARNING!
 
-This script is not yet finished. It may fail in unexpected ways.
-It could damage your system. It might ruin your day. Use at your
-own risk.
+This script is not officially supported.
+It will contribute to global warming.
+It may fail in unexpected ways.
+It could damage your system.
+It might ruin your day.
+Use at your own risk.
+
+Enjoy :-)
 ---------
 
 This script will set up Tanzu Application Platform ($TAP_VERSION) on a machine
