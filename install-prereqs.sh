@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 cat <<EOF
 This script will install the pre-requisite tooling for Tanzu Application Platform
