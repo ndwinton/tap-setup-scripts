@@ -63,6 +63,6 @@ The TAP components are configured to work with applications deployed primarily i
 the `default` namespace.
 
 You should be able to follow the
-(Getting Started guide)[https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.2/tap-0-2/GUID-getting-started.html)
+[Getting Started guide](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.2/tap-0-2/GUID-getting-started.html)
 to deploy your first application to the platform.
 
