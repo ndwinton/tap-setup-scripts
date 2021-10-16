@@ -230,7 +230,9 @@ cat > tbs-values.yaml <<EOF
 ---
 kp_default_repository: "$REGISTRY"
 kp_default_repository_username: "$REG_USERNAME"
-kp_default_repository_password: "$REG_PASSWORD"
+kp_default_repository_password: |
+$(echo "$REG_PASSWORD" | sed -e 's/^/  /')
+
 tanzunet_username: "$TN_USERNAME"
 tanzunet_password: "$TN_PASSWORD"
 EOF
