@@ -45,6 +45,9 @@ DockerHub) to which you can push container images.
 The script will prompt you for Tanzu Network and registry credentials, but
 you can also set these as environment variables and it will pick them
 up automatically.
+If set, values will be taken from `TN_USERNAME` and `TN_PASSWORD` for
+the Tanzu Network and `REGISTRY`, `REG_USERNAME` and `REG_PASSWORD` for
+the registry.
 
 After the setup script completes you should have a fully functioning TAP
 installation, ready to build and run applications.
@@ -53,6 +56,31 @@ If the installation fails at any point it should be safe to re-run the setup
 script.
 In particular, the initial installation of the Tanzu Build Service component
 may time out, although it is likely to complete successfully in the background.
+
+#### Use with DockerHub
+
+Unlike other container registries, DockerHub does not support
+hierarchical registry paths.
+This means that the initial registry path that you specify, for
+example `some-user/tap` will only be the path for the Tanzu Build
+Service images.
+Any new application created with the build service will appear
+as a new registry beneath your user account, for example,
+`some-user/my-new-app`.
+
+#### Use with Google Container Registry (GCR)
+
+If you intend to use the setup script with a `gcr.io` registry then
+you will need an JSON-formatted access key and must use `_json_key`
+as the username.
+The easiest way to provide the information to the setup script
+is to export environment variables, for example, as follows:
+
+```bash
+export REGISTRY=gcr.io/my-project-name/tap
+export REG_USERNAME=_json_key
+export REG_PASSWORD="$(cat gcr-access-key.json)"
+```
 
 ### Using TAP
 
