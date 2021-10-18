@@ -366,6 +366,42 @@ kubectl delete pod busybox --force --grace-period=0 2> /dev/null || true
 
 banner "Installing Supply Chain Security Tools - Scan"
 
+cat <<EOF | kubectl apply -f -
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: metadata-store-read-write
+  namespace: metadata-store
+rules:
+- resources: ["all"]
+  verbs: ["get", "create", "update"]
+  apiGroups: [ "metadata-store/v1" ]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: metadata-store-read-write
+  namespace: metadata-store
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: metadata-store-read-write
+subjects:
+- kind: ServiceAccount
+  name: metadata-store-read-write-client
+  namespace: metadata-store
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: metadata-store-read-write-client
+  namespace: metadata-store
+automountServiceAccountToken: false
+EOF
+
 STORE_URL=$(
   kubectl -n metadata-store get service -o name | \
   grep app | \
@@ -382,8 +418,7 @@ metadataStoreTokenSecret: metadata-store-secret
 EOF
 
 STORE_TOKEN=$(
-  kubectl get secrets -n tap-install \
-    -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='metadata-store-tap-install-sa')].data.token}" | base64 -d
+  kubectl get secret $(kubectl get serviceaccount -n metadata-store metadata-store-read-write-client -o json | jq -r '.secrets[0].name') -n metadata-store -o json | jq -r '.data.token' | base64 -d
 )
 cat > metadata-store-secret.yaml <<EOF
 ---
