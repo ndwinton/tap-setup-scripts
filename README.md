@@ -4,8 +4,10 @@ These are scripts I've used to set up beta versions of
 Tanzu Application Platform (TAP) on a local VM using
 [Kind](https://kind.sigs.k8s.io/) for the Kubernetes cluster.
 
-Any machine needs to have at least 4 CPUs, 16 GB of memory and around
-30 GB of disk.
+From the pre-requisites of Beta 2 for Kind on Linux:
+
+> Minimum requirements: 8 CPUs for i9 or equivalent, 12 CPUs for i7 or
+> equivalent, 8 GB RAM (12+ GB recommended), and 120 GB disk space.
 
 For more information see
 [the official documentation](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.2/tap-0-2/GUID-overview.html).
