@@ -24,9 +24,18 @@ function log() {
   echo ""
 }
 
-log "Removing any existing docker installation"
+function usingWsl() {
+  uname -a | grep -qi 'microsoft'
+}
 
-sudo apt-get remove -y docker docker-engine docker.io containerd runc
+if usingWsl
+then
+  log "It looks like you are running under WSL, so we must run with the integrated Docker"
+else
+  log "Removing any existing docker installation"
+
+  sudo apt-get remove -y docker docker-engine docker.io containerd runc
+fi
 
 log "Installing basic tools"
 
@@ -39,17 +48,20 @@ sudo apt-get install -y \
   lsb-release \
   jq
 
-log "Installing new version of docker"
+if ! usingWsl
+then
+  log "Installing new version of docker"
 
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo \
-  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt-get update -y
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  echo \
+    "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+    $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  sudo apt-get update -y
+  sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
-log "Adding $USER to docker group (logout/in to take effect)"
-sudo usermod -a -G docker $USER
+  log "Adding $USER to docker group (logout/in to take effect)"
+  sudo usermod -a -G docker $USER
+fi
 
 DOWNLOADS=/tmp/downloads
 mkdir -p $DOWNLOADS
