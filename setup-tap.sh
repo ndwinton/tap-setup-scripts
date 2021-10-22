@@ -26,6 +26,18 @@ function findOrPrompt() {
   fi
 }
 
+function findOrPromptWithDefault() {
+  local varName="$1"
+  local prompt="$2"
+  local default="$3"
+
+  findOrPrompt "$varName" "$prompt [$default]"
+  if [[ -z "${!varName}" ]]
+  then
+    export ${varName}="$default"
+  fi
+}
+
 # Get the latest version of a package
 function latestVersion() {
   tanzu package available list $1 -n tap-install -o json | \
@@ -59,6 +71,10 @@ function installLatest() {
   tanzu package installed get $name -n tap-install
 }
 
+function isLocal() {
+  [[ $DOMAIN == "vcap.me" ]]
+}
+
 TAP_VERSION=0.2.0
 
 cat <<EOT
@@ -83,8 +99,10 @@ for a container registry, such as DockerHub or Harbor.
 
 If set, values will be taken from TN_USERNAME and TN_PASSWORD for
 the Tanzu Network and REGISTRY, REG_USERNAME and REG_PASSWORD for
-the registry. If the values are not found in the environment they
-will be prompted for.
+the registry. The domain name to be used to construct application
+URLs can be set using the DOMAIN variable.
+
+If the values are not found in the environment they will be prompted for.
 
 EOT
 findOrPrompt TN_USERNAME "Tanzu Network Username"
@@ -99,6 +117,19 @@ EOT
 findOrPrompt REGISTRY "Container Registry"
 findOrPrompt REG_USERNAME "Registry Username"
 findOrPrompt REG_PASSWORD "Registry Password (will be echoed)"
+
+cat <<EOT
+
+The default value for the domain to be used to host applications
+is 'vcap.me'. If you use this value then the will result in a purely
+local TAP installation, as all 'vcap.me' names resolve to the
+localhost address. If you use anything other than 'vcap.me' then
+a load-balancer will be created and you will have to map lookups
+for the domain to the address of that load-balancer.
+
+EOT
+
+findOrPromptWithDefault DOMAIN "Domain" "vcap.me" 
 
 REG_HOST=${REGISTRY%%/*}
 REG_BASE=${REGISTRY#*.*/}
@@ -171,7 +202,9 @@ tanzu package available list --namespace tap-install
 
 banner "Deploying Cloud Native Runtime ..."
 
-cat > cnr-values.yaml <<EOF
+if isLocal
+then
+  cat > cnr-values.yaml <<EOF
 ---
 provider: "local"   
 
@@ -179,6 +212,11 @@ local_dns:
   enable: "true"
   domain: "vcap.me"
 EOF
+else
+  cat > cnr-values.yaml <<EOF
+---
+EOF
+fi
 
 installLatest cloud-native-runtimes cnrs.tanzu.vmware.com cnr-values.yaml
 
@@ -186,26 +224,32 @@ installLatest cloud-native-runtimes cnrs.tanzu.vmware.com cnr-values.yaml
 # something like the following:
 #  kapp inspect -n tap-install -a cloud-native-runtimes-ctrl -y
 
-banner "Setting CNR (knative) domain to vcap.me ..."
+banner "Setting CNR (knative) domain to $DOMAIN ..."
 
-cat > vcap-me.yaml <<EOF
+cat > config-domain.yaml <<EOF
 apiVersion: v1
 data:
-  vcap.me: |
+  $DOMAIN: |
 kind: ConfigMap
 metadata:
   name: config-domain
   namespace: knative-serving
 EOF
 
-kubectl apply -f vcap-me.yaml
+kubectl apply -f config-domain.yaml
 
 banner "Deploying App Accelerator ..."
+if isLocal
+then
+  SERVICE_TYPE='NodePort'
+else
+  SERVICE_TYPE='LoadBalancer'
+fi
 cat > app-accelerator-values.yaml <<EOF
 ---
 server:
   # Set this service_type to "NodePort" for local clusters like minikube.
-  service_type: "NodePort"
+  service_type: "${SERVICE_TYPE}"
   watched_namespace: "default"
 EOF
 
@@ -534,11 +578,46 @@ kubectl apply -f developer-namespace-setup.yaml
 kubectl patch serviceaccount default \
   -p '{"imagePullSecrets": [{"name": "registry-credentials"}, {"name": "tap-registry"}]}'
 
+if isLocal
+then
+  banner "Setting up port forwarding for App Acclerator and App Live View"
 
-banner "Setting up port forwarding for App Acclerator and App Live View"
+  kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
+  kubectl port-forward service/application-live-view-5112 5112:5112 -n app-live-view &
 
-kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
-kubectl port-forward service/application-live-view-5112 5112:5112 -n app-live-view &
+  cat <<EOF
+
+# Port forwarding for App Accelerator and App Live View has been set up,
+# but if you need to restart it, run the following commands.
+#
+# To set up port forwarding for App Accelerator (http://localhost:8877) run:"
+
+  kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
+
+# To set up port forwarding for App Live View (http://localhost:5112) run:"
+
+  kubectl port-forward service/application-live-view-5112 5112:5112 -n app-live-view &
+
+EOF
+else
+
+  ENVOY_IP=$(kubectl get svc envoy -n contour-external -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
+  ACCELERATOR_IP=$(kubectl get svc acc-ui-server -n accelerator-system -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
+  LIVE_VIEW_IP=$(kubectl get svc application-live-view-5112 -n app-live-view -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
+
+  cat <<EOF
+
+###
+### Applications deployed in TAP will run at ${ENVOY_IP}
+### Please configure DNS for *.${DOMAIN} to point to that address
+###
+
+### App Accelerator is at http://${ACCELERATOR_IP}
+
+### App Live View is running at http://{LIVE_VIEW_IP}:5112
+
+EOF
+fi
 
 cat <<EOF
 
@@ -554,16 +633,6 @@ cat <<EOF
     -n YOUR-NAMESPACE
     -p '{"imagePullSecrets": [{"name": "registry-credentials"}, {"name": "tap-registry"}]}'
 
-# Port forwarding for App Accelerator and App Live View has been set up,
-# but if you need to restart it, run the following commands.
-#
-# To set up port forwarding for App Accelerator (http://localhost:8877) run:"
-
-  kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
-
-# To set up port forwarding for App Live View (http://localhost:5112) run:"
-
-  kubectl port-forward service/application-live-view-5112 5112:5112 -n app-live-view &
 EOF
 
 banner "Checking state of all packages"
