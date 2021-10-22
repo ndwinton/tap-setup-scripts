@@ -14,21 +14,12 @@ For more information see
 
 There are three scripts here:
 
+* `install-prereqs.sh`
 * `kind-with-registry.sh`
 * `setup-tap.sh`
-* `install-prereqs.sh`
 
-The first sets up a Kind cluster (named `tap`) which has port forwarding
-to ports 80, 443 and 53.
-The DNS (port 53) forwarding is probably not necessary but could be used
-to hook into the cluster DNS.
-The HTTP/S ports will expose applications deployed on TAP via `*.vcap.me`
-URLs (all lookups of `vcap.me` addresses resolve to 127.0.0.1).
-
-The second script sets up the entire TAP installation, including
-the Tanzu Build Service.
-It assumes that all of the necessary CLI tools have been installed prior
-to running the script.
+The first, `install-prereqs.sh`, installs the necessary CLI tools on
+64-bit AMD/Intel Ubuntu-like Linux systems (including WSL under Windows).
 These tools are:
 
 * `docker`, `kubectl` and `kind`.
@@ -38,11 +29,15 @@ These tools are:
 * The `kn` [Knative CLI](https://github.com/knative/client).
 * The `tanzu` CLI from the [Tanzu Network](https://network.tanzu.vmware.com/products/tanzu-application-platform/).
 
-If you do not have these tools installed you can use the third script,
-`install-prereqs.sh` to install them.
+The second sets up a Kind cluster (named `tap`) which has port forwarding
+to ports 80, 443 and 53.
+The DNS (port 53) forwarding is probably not necessary but could be used
+to hook into the cluster DNS.
+The HTTP/S ports will expose applications deployed on TAP via `*.vcap.me`
+URLs (all lookups of `vcap.me` addresses resolve to 127.0.0.1).
 
-You will also need a login to the Tanzu Network and access to a Docker registry (e.g.
-DockerHub) to which you can push container images.
+You will also need a login to the Tanzu Network and access to a Docker
+registry (e.g. DockerHub) to which you can push container images.
 
 The script will prompt you for Tanzu Network and registry credentials, but
 you can also set these as environment variables and it will pick them
@@ -50,6 +45,15 @@ up automatically.
 If set, values will be taken from `TN_USERNAME` and `TN_PASSWORD` for
 the Tanzu Network and `REGISTRY`, `REG_USERNAME` and `REG_PASSWORD` for
 the registry.
+
+By default, the script assumes an installation on a local cluster,
+such as Kind or Minikub, where services will be accessed via the
+`localhost` address.
+However, it can also be used for an installation on to a full,
+externally-accessible cluster.
+In order to enable this you should set the `DOMAIN` environment
+variable (or supply a value when prompted) to something other than
+the default of `vcap.me`.
 
 After the setup script completes you should have a fully functioning TAP
 installation, ready to build and run applications.

@@ -614,7 +614,7 @@ else
 
 ### App Accelerator is at http://${ACCELERATOR_IP}
 
-### App Live View is running at http://{LIVE_VIEW_IP}:5112
+### App Live View is running at http://${LIVE_VIEW_IP}:5112
 
 EOF
 fi
