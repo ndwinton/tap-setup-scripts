@@ -19,23 +19,19 @@ EOF
 read -p "Hit return to continue: " GO
 
 function log() {
+  local line
+
   echo ""
-  echo ">>> $*"
+  for line in "$@"
+  do
+    echo ">>> $line"
+  done
   echo ""
 }
 
 function usingWsl() {
-  uname -a | grep -qi 'microsoft'
+  uname -r | grep -qi 'microsoft'
 }
-
-if usingWsl
-then
-  log "It looks like you are running under WSL, so we must run with the integrated Docker"
-else
-  log "Removing any existing docker installation"
-
-  sudo apt-get remove -y docker docker-engine docker.io containerd runc
-fi
 
 log "Installing basic tools"
 
@@ -48,8 +44,19 @@ sudo apt-get install -y \
   lsb-release \
   jq
 
-if ! usingWsl
+if usingWsl
 then
+  log "It looks like you are running under WSL" \
+    "You must install Docker Desktop if you have not done so already" \
+    "This script will install the docker CLI only"
+
+  sudo apt-get install -y docker
+
+else
+  log "Removing any existing docker installation"
+
+  sudo apt-get remove -y docker docker-engine docker.io containerd runc
+
   log "Installing new version of docker"
 
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
@@ -58,10 +65,10 @@ then
     $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   sudo apt-get update -y
   sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-
-  log "Adding $USER to docker group (logout/in to take effect)"
-  sudo usermod -a -G docker $USER
 fi
+
+log "Adding $USER to docker group (logout/in to take effect)"
+sudo usermod -a -G docker $USER
 
 DOWNLOADS=/tmp/downloads
 mkdir -p $DOWNLOADS
