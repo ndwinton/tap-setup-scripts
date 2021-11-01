@@ -117,7 +117,11 @@ then
   tanzu plugin delete package
   tanzu plugin delete accelerator
   tanzu plugin delete apps
-  tanzu update --yes --local $TANZU_DIR/cli
+
+  test -d $TANZU_DIR/cli/accelerator/v0.5.0 && \
+    mv $TANZU_DIR/cli/accelerator/v0.5.0 $TANZU_DIR/cli/accelerator/OLD.v0.5.0
+  test -d $TANZU_DIR/cli/accelerator/v0.5.0
+    mv $TANZU_DIR/cli/accelerator/v0.5.0 $TANZU_DIR/cli/apps/OLD.v0.5.0
 else
   UPGRADE_TANZU=false
   mkdir -p $TANZU_DIR
@@ -137,6 +141,7 @@ else
   tanzu plugin install --local $TANZU_DIR/cli all
 fi
 
+tanzu version
 tanzu plugin list
 
 log "Done"
