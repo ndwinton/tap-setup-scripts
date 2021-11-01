@@ -113,6 +113,11 @@ TANZU_DIR=$HOME/tanzu
 if [[ -d $TANZU_DIR ]]
 then
   UPGRADE_TANZU=true
+  tanzu plugin delete imagepullsecret
+  tanzu plugin delete package
+  tanzu plugin delete accelerator
+  tanzu plugin delete apps
+  tanzu update --yes --local $TANZU_DIR/cli
 else
   UPGRADE_TANZU=false
   mkdir -p $TANZU_DIR
@@ -123,11 +128,6 @@ sudo install $TANZU_DIR/cli/core/v0.8.0/tanzu-core-linux_amd64 /usr/local/bin/ta
 
 if $UPGRADE_TANZU
 then
-  tanzu plugin delete imagepullsecret
-  tanzu plugin delete package
-  tanzu plugin delete accelerator
-  tanzu plugin delete apps
-  tanzu update --yes --local $TANZU_DIR/cli
   tanzu plugin install secret --local $TANZU_DIR/cli
   tanzu plugin install package --local $TANZU_DIR/cli
   tanzu plugin install accelerator --local $TANZU_DIR/cli
