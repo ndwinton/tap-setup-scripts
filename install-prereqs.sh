@@ -2,6 +2,7 @@
 
 cat <<EOF
 This script will install the pre-requisite tooling for Tanzu Application Platform
+on Ubuntu-like systems.
 
 You may be prompted for your password for 'sudo' commands and you will
 also need to supply a 'UAA API refresh token' to access files from the Tanzu
@@ -89,12 +90,12 @@ sudo sh -c 'curl -L https://carvel.dev/install.sh | bash'
 
 log "Installing kn"
 
-curl -Lo $DOWNLOADS/kn https://github.com/knative/client/releases/download/v0.26.0/kn-linux-amd64
+curl -Lo $DOWNLOADS/kn https://github.com/knative/client/releases/latest/download/kn-linux-amd64
 sudo install -o root -g root -m 0755 $DOWNLOADS/kn /usr/local/bin/kn
 
 log "Installing kp"
 
-curl -Lo $DOWNLOADS/kp https://github.com/vmware-tanzu/kpack-cli/releases/download/v0.3.1/kp-linux-0.3.1
+curl -Lo $DOWNLOADS/kp https://github.com/vmware-tanzu/kpack-cli/releases/download/v0.4.1/kp-linux-0.4.1
 sudo install -o root -g root -m 0755 $DOWNLOADS/kp /usr/local/bin/kp
 
 log "Installing pivnet CLI"
@@ -106,16 +107,36 @@ log "Installing tanzu CLI"
 
 read -p 'Tanzu Network UAA Refresh Token: ' PIVNET_TOKEN
 pivnet login --api-token="$PIVNET_TOKEN"
-pivnet download-product-files --download-dir $DOWNLOADS --product-slug='tanzu-application-platform' --release-version='0.2.0' --product-file-id=1055586
+pivnet download-product-files --download-dir $DOWNLOADS --product-slug='tanzu-application-platform' --release-version='0.3.0-build.5' --product-file-id=1073950
 TANZU_DIR=$HOME/tanzu
-mkdir -p $TANZU_DIR
-rm -rf $TANZU_DIR/*
+
+if [[ -d $TANZU_DIR ]]
+then
+  UPGRADE_TANZU=true
+else
+  UPGRADE_TANZU=false
+  mkdir -p $TANZU_DIR
+fi
+
 tar xvf $DOWNLOADS/tanzu-framework-linux-amd64.tar -C $TANZU_DIR
-sudo install $TANZU_DIR/cli/core/v0.5.0/tanzu-core-linux_amd64 /usr/local/bin/tanzu
-export TANZU_CLI_NO_INIT=true
-tanzu plugin repo update -b tanzu-cli-framework core
-tanzu plugin clean
-tanzu plugin install --local $TANZU_DIR/cli all
+sudo install $TANZU_DIR/cli/core/v0.8.0/tanzu-core-linux_amd64 /usr/local/bin/tanzu
+
+if $UPGRADE_TANZU
+then
+  tanzu plugin delete imagepullsecret
+  tanzu plugin delete package
+  tanzu plugin delete accelerator
+  tanzu plugin delete apps
+  tanzu update --yes --local $TANZU_DIR/cli
+  tanzu plugin install secret --local $TANZU_DIR/cli
+  tanzu plugin install package --local $TANZU_DIR/cli
+  tanzu plugin install accelerator --local $TANZU_DIR/cli
+  tanzu plugin install apps --local $TANZU_DIR/cli
+  tanzu update --yes --local $TANZU_DIR/cli
+else
+  tanzu plugin install --local $TANZU_DIR/cli all
+fi
+
 tanzu plugin list
 
 log "Done"

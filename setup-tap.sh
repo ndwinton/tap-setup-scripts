@@ -1,17 +1,27 @@
 #!/bin/bash
+#
+# Tanzu Application Platform installation script
 
 set -e
 
 function banner() {
+  local line
   echo ""
   echo "###"
-  echo "### $*"
+  for line in "$@"
+  do
+    echo "### $line"
+  done
   echo "###"
   echo ""
 }
 
 function message() {
-  echo ">>> $*"
+  local line
+  for line in "$@"
+  do
+    echo ">>> $line"
+  done
 }
 
 function findOrPrompt() {
@@ -20,6 +30,7 @@ function findOrPrompt() {
 
   if [[ -z "${!varName}" ]]
   then
+    echo "$varName not found in environment"
     read -p "$prompt: " $varName
   else
     echo "Value for $varName found in environment"
@@ -75,7 +86,7 @@ function isLocal() {
   [[ $DOMAIN == "vcap.me" ]]
 }
 
-TAP_VERSION=0.2.0
+TAP_VERSION=0.3.0-build.5
 
 cat <<EOT
 WARNING!
@@ -97,18 +108,20 @@ already installed, along with a Kubernetes cluster.
 You will need an account on the Tanzu Network (aka PivNet) and an account
 for a container registry, such as DockerHub or Harbor.
 
-If set, values will be taken from TN_USERNAME and TN_PASSWORD for
-the Tanzu Network and REGISTRY, REG_USERNAME and REG_PASSWORD for
-the registry. The domain name to be used to construct application
-URLs can be set using the DOMAIN variable.
+Values for various configuration parameters will be taken from
+environment variables, if set. If they are not present then they
+will be prompted for.
 
-If the values are not found in the environment they will be prompted for.
+>>> Tanzu Network credentials
 
 EOT
+
 findOrPrompt TN_USERNAME "Tanzu Network Username"
 findOrPrompt TN_PASSWORD "Tanzu Network Password (will be echoed)"
 
 cat <<EOT
+
+>>> Container Registry
 
 The container registry should be something like 'myuser/tap' for DockerHub or
 'harbor-repo.example.com/myuser/tap' for an internal registry.
@@ -119,6 +132,8 @@ findOrPrompt REG_USERNAME "Registry Username"
 findOrPrompt REG_PASSWORD "Registry Password (will be echoed)"
 
 cat <<EOT
+
+>>> Application domain
 
 The default value for the domain to be used to host applications
 is 'vcap.me'. If you use this value then the will result in a purely
@@ -139,6 +154,21 @@ then
   REG_HOST='index.docker.io'
   REG_BASE=${REGISTRY%%/*}
 fi
+
+cat <<EOT
+
+>>> Installation profile
+
+This should be one of the following:
+
+dev - the "Developer Light" profile
+ops - the "Operator Light" profile
+shared - the "Shared Tools" profile
+full - a full TAP installation (the default)
+
+EOT
+
+findOrPromptWithDefault INSTALL_PROFILE "Profile" "full"
 
 banner "Deploying kapp-controller"
 
