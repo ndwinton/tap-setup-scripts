@@ -1,16 +1,24 @@
+# This is work in progress on Beta 3, build 7
+
 ## Setting up Tanzu Application Platform on a local machine
 
 These are scripts I've used to set up beta versions of
-Tanzu Application Platform (TAP) on a local VM using
-[Kind](https://kind.sigs.k8s.io/) for the Kubernetes cluster.
+Tanzu Application Platform (TAP) on a VM using
+[Kind](https://kind.sigs.k8s.io/) and on GKE.
+It may also work (but is less tested) on TCE, TKG and EKS.
 
-From the pre-requisites of Beta 2 for Kind on Linux:
+It is known to work with DockerHub, Harbor and GCR for the container
+registry.
 
-> Minimum requirements: 8 CPUs for i9 or equivalent, 12 CPUs for i7 or
-> equivalent, 8 GB RAM (12+ GB recommended), and 120 GB disk space.
+From the pre-requisites in the
+[the official documentation](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.3/tap-0-3/GUID-overview.html).:
 
-For more information see
-[the official documentation](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.2/tap-0-2/GUID-overview.html).
+> To deploy all Tanzu Application Platform packages your cluster must
+> have at least 8 GB of RAM across all nodes available to Tanzu
+> Application Platform. At least 8 CPUs for i9 or equivalent or 12 CPUs
+> for i7 or equivalent must be available to Tanzu Application Platform
+> components. VMware recommends that at least 16 GB of RAM is available
+> to build and deploy applications, including for Kind and Minikube.
 
 There are three scripts here:
 
@@ -97,6 +105,6 @@ The TAP components are configured to work with applications deployed primarily i
 the `default` namespace.
 
 You should be able to follow the
-[Getting Started guide](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.2/tap-0-2/GUID-getting-started.html)
+[Getting Started guide](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.3/tap-0-3/GUID-getting-started.html)
 to deploy your first application to the platform.
 
