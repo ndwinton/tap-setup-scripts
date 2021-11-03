@@ -2,7 +2,19 @@
 #
 # Tanzu Application Platform installation script
 
+TAP_VERSION=0.3.0-build.7
+
 set -e
+
+DO_INIT=true
+for arg in "$@"
+do
+  case "$arg" in
+  --skip-init)
+    DO_INIT=false
+    ;;
+  esac
+done
 
 function banner() {
   local line
@@ -86,7 +98,78 @@ function isLocal() {
   [[ $DOMAIN == "vcap.me" ]]
 }
 
-TAP_VERSION=0.3.0-build.5
+function deployKappController() {
+  banner "Deploying kapp-controller"
+
+  # Check if we appear to be running on TCE or TKG.
+  # If so, there will need to be some manual steps taken to delete the
+  # existing kapp-controller
+
+  if kubectl get deployment kapp-controller -n tkg-system 2> /dev/null
+  then
+    banner "You appear to be running on a TCE or TKGcluster." \
+      "You must follow the instructions in the documentation to delete the current" \
+      "kapp-controller deployment before re-running this script." \
+      "" \
+      "The documentation for TCE is at:" \
+      "https://docs-staging.vmware.com/en/VMware-Tanzu-Application-Platform/0.3/tap-0-3/GUID-install-tce.html" \
+      "" \
+      "The documentation for TKG is at:" \
+      "https://docs-staging.vmware.com/en/VMware-Tanzu-Application-Platform/0.3/tap-0-3/GUID-install-tkg.html"
+
+      exit 1
+  fi
+
+  kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/releases/latest/download/release.yml -y
+  kubectl get deployment kapp-controller -n kapp-controller  -o yaml | grep kapp-controller.carvel.dev/version:
+}
+
+function deploySecretgenController() {
+  banner "Deploying secretgen-controller"
+
+  kapp deploy -a sg -f https://github.com/vmware-tanzu/carvel-secretgen-controller/releases/latest/download/release.yml -y
+  kubectl get deployment secretgen-controller -n secretgen-controller -o yaml | grep secretgen-controller.carvel.dev/version:
+}
+
+function createTapNamespace() {
+
+  banner "Creating tap-install namespace"
+
+  (kubectl get ns tap-install 2> /dev/null) || \
+    kubectl create ns tap-install
+}
+
+function createTapRegistrySecret() {
+
+  banner "Creating tap-registry registry secret"
+
+  tanzu secret registry delete tap-registry --namespace tap-install -y || true
+  waitForRemoval kubectl get secret tap-registry --namespace tap-install -o json
+
+  tanzu secret registry add tap-registry \
+    --username "$TN_USERNAME" --password "$TN_PASSWORD" \
+    --server registry.tanzu.vmware.com \
+    --export-to-all-namespaces --namespace tap-install --yes
+}
+
+function loadPackageRepository() {
+  banner "Removing any current TAP package repository"
+
+  tanzu package repository delete tanzu-tap-repository -n tap-install --yes || true
+  waitForRemoval tanzu package repository get tanzu-tap-repository -n tap-install -o json
+
+  banner "Adding TAP package repository"
+
+  tanzu package repository add tanzu-tap-repository \
+      --url registry.tanzu.vmware.com/tanzu-application-platform/tap-packages:$TAP_VERSION \
+      --namespace tap-install
+  tanzu package repository get tanzu-tap-repository --namespace tap-install
+  while [[ $(tanzu package available list --namespace tap-install -o json) == '[]' ]]
+  do
+    message "Waiting for packages ..."
+    sleep 5
+  done
+}
 
 cat <<EOT
 WARNING!
@@ -153,6 +236,7 @@ then
   # Using DockerHub
   REG_HOST='index.docker.io'
   REG_BASE=${REGISTRY%%/*}
+  REGISTRY="$REG_HOST/$REGISTRY"
 fi
 
 cat <<EOT
@@ -161,102 +245,103 @@ cat <<EOT
 
 This should be one of the following:
 
-dev - the "Developer Light" profile
-ops - the "Operator Light" profile
-shared - the "Shared Tools" profile
+dev-light - the "Developer Light" profile
+operator-light - the "Operator Light" profile
+shared-tools - the "Shared Tools" profile
 full - a full TAP installation (the default)
 
 EOT
 
 findOrPromptWithDefault INSTALL_PROFILE "Profile" "full"
 
-banner "Deploying kapp-controller"
+if $DO_INIT
+then
+  deployKappController
 
-kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/releases/latest/download/release.yml -y
-kubectl get deployment kapp-controller -n kapp-controller  -o yaml | grep kapp-controller.carvel.dev/version:
+  deploySecretgenController
 
-banner "Deploying secretgen-controller"
+  createTapNamespace
 
-kapp deploy -a sg -f https://github.com/vmware-tanzu/carvel-secretgen-controller/releases/latest/download/release.yml -y
-kubectl get deployment secretgen-controller -n secretgen-controller -o yaml | grep secretgen-controller.carvel.dev/version:
+  createTapRegistrySecret
 
-banner "Deploying cert-manager"
+  loadPackageRepository
+fi
 
-kapp deploy -a cert-manager -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml -y
-kubectl get deployment cert-manager -n cert-manager -o yaml | grep -m 1 'app.kubernetes.io/version: v'
-
-banner "Deploying FluxCD source-controller"
-
-(kubectl get ns flux-system 2> /dev/null) || \
-  kubectl create namespace flux-system
-(kubectl get clusterrolebinding default-admin 2> /dev/null) || \
-kubectl create clusterrolebinding default-admin \
-  --clusterrole=cluster-admin \
-  --serviceaccount=flux-system:default
-kapp deploy -a flux-source-controller -n flux-system -y \
-  -f https://github.com/fluxcd/source-controller/releases/download/v0.15.4/source-controller.crds.yaml \
-  -f https://github.com/fluxcd/source-controller/releases/download/v0.15.4/source-controller.deployment.yaml
-
-banner "Creating tap-install namespace"
-
-(kubectl get ns tap-install 2> /dev/null) || \
-  kubectl create ns tap-install
-
-banner "Creating tap-registry imagepullsecret"
-
-tanzu imagepullsecret delete tap-registry --namespace tap-install -y || true
-waitForRemoval kubectl get secret tap-registry --namespace tap-install -o json
-
-tanzu imagepullsecret add tap-registry \
-  --username "$TN_USERNAME" --password "$TN_PASSWORD" \
-  --registry registry.tanzu.vmware.com \
-  --export-to-all-namespaces --namespace tap-install
-
-banner "Removing any current TAP package repository"
-
-tanzu package repository delete tanzu-tap-repository -n tap-install || true
-waitForRemoval tanzu package repository get tanzu-tap-repository -n tap-install -o json
-
-banner "Adding TAP package repository"
-
-tanzu package repository add tanzu-tap-repository \
-    --url registry.tanzu.vmware.com/tanzu-application-platform/tap-packages:$TAP_VERSION \
-    --namespace tap-install
-tanzu package repository get tanzu-tap-repository --namespace tap-install
-while [[ $(tanzu package available list --namespace tap-install -o json) == '[]' ]]
-do
-  message "Waiting for packages ..."
-  sleep 5
-done
 tanzu package available list --namespace tap-install
 
-banner "Deploying Cloud Native Runtime ..."
+banner "Deploying TAP Profile: ${INSTALL_PROFILE} ..."
 
 if isLocal
 then
-  cat > cnr-values.yaml <<EOF
----
-provider: "local"   
+  CNR_PROVIDER="local"
+  CNR_LOCAL_DNS="true"
+  AA_SERVICE_TYPE='NodePort'
+  ALV_SERVICE_TYPE='ClusterIP'
+  # Can't use vcap.me for educates
+  EDUCATES_DOMAIN="$(hostname -I | cut -d' ' -f1).nip.io"
 
-local_dns:
-  enable: "true"
-  domain: "vcap.me"
-EOF
 else
-  cat > cnr-values.yaml <<EOF
----
-EOF
+  CNR_PROVIDER=""
+  CNR_LOCAL_DNS="false"
+  AA_SERVICE_TYPE='LoadBalancer'
+  ALV_SERVICE_TYPE='LoadBalancer'
+  EDUCATES_DOMAIN=$DOMAIN
 fi
 
-installLatest cloud-native-runtimes cnrs.tanzu.vmware.com cnr-values.yaml
+cat > tap-values.yaml <<EOF
+profile: ${INSTALL_PROFILE}
 
-# For more detailed information on the progress of a package install, use
-# something like the following:
-#  kapp inspect -n tap-install -a cloud-native-runtimes-ctrl -y
+buildservice:
+  tanzunet_username: "${TN_USERNAME}"
+  tanzunet_password: "${TN_PASSWORD}"
+  kp_default_repository: "$REGISTRY"
+  kp_default_repository_username: "$REG_USERNAME"
+  kp_default_repository_password: |-
+$(echo "${REG_PASSWORD}" | sed -e 's/^/    /')
+
+cnrs:
+  provider: ${CNR_PROVIDER}
+  local_dns:
+    enable: "${CNR_LOCAL_DNS}"
+    domain: "${DOMAIN}"
+
+accelerator:
+  server:
+    service_type: "${AA_SERVICE_TYPE}"
+    watched_namespace: "default"
+
+appliveview:
+  connector_namespaces: [default]
+  service_type: "${ALV_SERVICE_TYPE}"
+
+ootb_supply_chain_basic:
+  service_account: default
+  registry:
+    server: "${REG_HOST}"
+    repository: "${REG_BASE}"
+
+ootb_supply_chain_testing:
+  service_account: default
+  registry:
+    server: "${REG_HOST}"
+    repository: "${REG_BASE}"
+
+ootb_supply_chain_testing_scanning:
+  service_account: default
+  registry:
+    server: "${REG_HOST}"
+    repository: "${REG_BASE}"
+
+learningcenter:
+  ingressDomain: "educates.${EDUCATES_DOMAIN}"
+
+EOF
+
+installLatest tap tap.tanzu.vmware.com tap-values.yaml 30m
 
 banner "Setting CNR (knative) domain to $DOMAIN ..."
 
-cat > config-domain.yaml <<EOF
+cat <<EOF | kubectl apply -f -
 apiVersion: v1
 data:
   $DOMAIN: |
@@ -266,268 +351,9 @@ metadata:
   namespace: knative-serving
 EOF
 
-kubectl apply -f config-domain.yaml
-
-banner "Deploying App Accelerator ..."
-if isLocal
-then
-  SERVICE_TYPE='NodePort'
-else
-  SERVICE_TYPE='LoadBalancer'
-fi
-cat > app-accelerator-values.yaml <<EOF
----
-server:
-  # Set this service_type to "NodePort" for local clusters like minikube.
-  service_type: "${SERVICE_TYPE}"
-  watched_namespace: "default"
-EOF
-
-installLatest app-accelerator \
-  accelerator.apps.tanzu.vmware.com \
-  app-accelerator-values.yaml
-kubectl get pods -n accelerator-system
-
-banner "Installing Convention Controller"
-
-installLatest convention-controller controller.conventions.apps.tanzu.vmware.com
-kubectl get pods -n conventions-system
-
-banner "Installing Source Controller"
-
-installLatest source-controller controller.source.apps.tanzu.vmware.com
-kubectl get pods -n source-system
-
-banner "Installing Tanzu Build Service"
-
-cat > tbs-values.yaml <<EOF
----
-kp_default_repository: "$REGISTRY"
-kp_default_repository_username: "$REG_USERNAME"
-kp_default_repository_password: |-
-$(echo "$REG_PASSWORD" | sed -e 's/^/  /')
-
-tanzunet_username: "$TN_USERNAME"
-tanzunet_password: "$TN_PASSWORD"
-EOF
-
-installLatest tbs buildservice.tanzu.vmware.com tbs-values.yaml 30m
-
-banner "Installing Supply Chain Choreographer (Cartographer)"
-
-installLatest cartographer cartographer.tanzu.vmware.com
-
-banner "Creating Default Supply Chain"
-
-cat > default-supply-chain-values.yaml <<EOF
----
-registry:
-  server: "$REG_HOST"
-  repository: "$REG_BASE"
-service_account: service-account
-EOF
-
-installLatest default-supply-chain \
-  default-supply-chain.tanzu.vmware.com \
-  default-supply-chain-values.yaml
-
-banner "Installing Developer Conventions"
-
-installLatest developer-conventions developer-conventions.tanzu.vmware.com
-
-banner "Installing App Live View"
-
-cat > app-live-view-values.yaml <<EOF
----
-connector_namespaces: [default]
-server_namespace: app-live-view
-EOF
-
-(kubectl get ns app-live-view 2> /dev/null) || \
-  kubectl create ns app-live-view
-
-installLatest app-live-view \
-  appliveview.tanzu.vmware.com \
-  app-live-view-values.yaml
-kubectl get pods -n app-live-view
-
-banner "Installing Service Bindings"
-
-installLatest service-bindings service-bindings.labs.vmware.com
-kubectl get pods -n service-bindings
-
-banner "Installing Supply Chain Security Tools - Store"
-
-cat > scst-store-values.yaml <<EOF
----
-db_password: "PASSWORD-0123"
-EOF
-
-installLatest metadata-store \
-  scst-store.tanzu.vmware.com \
-  scst-store-values.yaml
-
-banner "Installing Supply Chain Security Tools - Sign"
-
-cat > scst-sign-values.yaml <<EOF
----
-warn_on_unmatched: true
-EOF
-
-installLatest image-policy-webhook \
-  image-policy-webhook.signing.run.tanzu.vmware.com \
-  scst-sign-values.yaml
-
-banner "Creating registry-credentials service account and image pull secret"
-
-kubectl delete secret image-pull-secret -n image-policy-system 2> /dev/null || true
-waitForRemoval kubectl get secret image-pull-secret -n image-policy-system -o json
-kubectl create secret docker-registry image-pull-secret \
-  --docker-server="$REG_HOST" \
-  --docker-username="$REG_USERNAME" \
-  --docker-password="$REG_PASSWORD" \
-  --namespace image-policy-system
-
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: registry-credentials
-  namespace: image-policy-system
-imagePullSecrets:
-- name: image-pull-secret
-EOF
-
-banner "Creating basic ClusterImagePolicy"
-
-cat <<EOF | kubectl apply -f -
-apiVersion: signing.run.tanzu.vmware.com/v1alpha1
-kind: ClusterImagePolicy
-metadata:
- name: image-policy
-spec:
- verification:
-   exclude:
-     resources:
-       namespaces:
-       - kube-system
-   keys:
-   - name: cosign-key
-     publicKey: |
-       -----BEGIN PUBLIC KEY-----
-       MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEhyQCx0E9wQWSFI9ULGwy3BuRklnt
-       IqozONbbdbqz11hlRJy9c7SG+hdcFl9jE9uE/dwtuwU2MqU9T/cN0YkWww==
-       -----END PUBLIC KEY-----
-   images:
-   - namePattern: gcr.io/projectsigstore/cosign*
-     keys:
-     - name: cosign-key
-EOF
-
-banner "Testing image signing policy"
-
-kubectl delete pod cosign --force --grace-period=0 2> /dev/null || true
-kubectl delete pod busybox --force --grace-period=0 2> /dev/null || true
-
-message "The cosign pod should be created without a warning"
-kubectl run cosign --image=gcr.io/projectsigstore/cosign:v1.2.1 --restart=Never --command -- sleep 5
-
-message "The busybox pod should generate a warning"
-kubectl run busybox --image=busybox --restart=Never -- sleep 5
-
-kubectl delete pod cosign --force --grace-period=0 2> /dev/null || true
-kubectl delete pod busybox --force --grace-period=0 2> /dev/null || true
-
-banner "Installing Supply Chain Security Tools - Scan"
-
-cat <<EOF | kubectl apply -f -
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: metadata-store-read-write
-  namespace: metadata-store
-rules:
-- resources: ["all"]
-  verbs: ["get", "create", "update"]
-  apiGroups: [ "metadata-store/v1" ]
-
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: metadata-store-read-write
-  namespace: metadata-store
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: metadata-store-read-write
-subjects:
-- kind: ServiceAccount
-  name: metadata-store-read-write-client
-  namespace: metadata-store
-
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: metadata-store-read-write-client
-  namespace: metadata-store
-automountServiceAccountToken: false
-EOF
-
-STORE_URL=$(
-  kubectl -n metadata-store get service -o name | \
-  grep app | \
-  xargs kubectl -n metadata-store get \
-    -o jsonpath='{.spec.ports[].name}{"://"}{.metadata.name}{"."}{.metadata.namespace}{".svc.cluster.local:"}{.spec.ports[].port}'
-  )
-STORE_CA=$(kubectl get secret app-tls-cert -n metadata-store -o json | jq -r '.data."ca.crt"' | base64 -d | sed -e 's/^/  /')
-cat > scst-scan-controller-values.yaml <<EOF
----
-metadataStoreUrl: $STORE_URL
-metadataStoreCa: |-
-$STORE_CA
-metadataStoreTokenSecret: metadata-store-secret
-EOF
-
-STORE_TOKEN=$(
-  kubectl get secret $(kubectl get serviceaccount -n metadata-store metadata-store-read-write-client -o json | jq -r '.secrets[0].name') -n metadata-store -o json | jq -r '.data.token' | base64 -d
-)
-cat > metadata-store-secret.yaml <<EOF
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: metadata-store-secret
-  namespace: scan-link-system
-type: kubernetes.io/opaque
-stringData:
-  token: $STORE_TOKEN
-EOF
-
-(kubectl create namespace scan-link-system 2> /dev/null) || true
-kubectl apply -f metadata-store-secret.yaml
-
-installLatest scan-controller \
-  scanning.apps.tanzu.vmware.com \
-  scst-scan-controller-values.yaml
-
-banner "Installing Supply Chain Security Tools - Scan (Grype Scanner)"
-
-installLatest grype-scanner grype.scanning.apps.tanzu.vmware.com
-
-banner "Installing API portal"
-
-installLatest api-portal api-portal.tanzu.vmware.com
-
-banner "Installing Services Control Plane (SCP) Toolkit"
-
-installLatest scp-toolkit scp-toolkit.tanzu.vmware.com
-
 banner "Setting up secrets, accounts and roles for default developer namespace"
 
-tanzu imagepullsecret delete registry-credentials -y || true
+tanzu secret registry delete registry-credentials -y || true
 waitForRemoval kubectl get secret registry-credentials -o json
 
 # The following is a workaround for a Beta 2 bug
@@ -538,10 +364,11 @@ else
   REG_CRED_HOST=$REG_HOST
 fi
 
-tanzu imagepullsecret add registry-credentials \
-  --registry "$REG_CRED_HOST" \
+tanzu secret registry add registry-credentials \
+  --server "$REG_CRED_HOST" \
   --username "$REG_USERNAME" \
-  --password "$REG_PASSWORD" || true
+  --password "$REG_PASSWORD" \
+  --namespace default || true
 
 cat > developer-namespace-setup.yaml <<EOF
 apiVersion: v1
@@ -558,7 +385,7 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: service-account # use value from "Install Default Supply Chain"
+  name: default # maybe "service-account"?
 secrets:
   - name: registry-credentials
 imagePullSecrets:
@@ -576,6 +403,10 @@ rules:
   - apiGroups:
       - servicebinding.io
     resources: ['servicebindings']
+    verbs: ['*']
+  - apiGroups:
+      - services.tanzu.vmware.com
+    resources: ['resourceclaims']
     verbs: ['*']
   - apiGroups:
       - serving.knative.dev
@@ -598,7 +429,7 @@ roleRef:
   name: kapp-permissions
 subjects:
   - kind: ServiceAccount
-    name: service-account # use value from "Install Default Supply Chain"
+    name: default
 EOF
 
 kubectl apply -f developer-namespace-setup.yaml
@@ -613,7 +444,7 @@ then
   banner "Setting up port forwarding for App Acclerator and App Live View"
 
   kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
-  kubectl port-forward service/application-live-view-5112 5112:5112 -n app-live-view &
+  kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
 
   cat <<EOF
 
@@ -626,7 +457,7 @@ then
 
 # To set up port forwarding for App Live View (http://localhost:5112) run:"
 
-  kubectl port-forward service/application-live-view-5112 5112:5112 -n app-live-view &
+  kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
 
 EOF
 else
@@ -644,7 +475,7 @@ else
 
 ### App Accelerator is at http://${ACCELERATOR_IP}
 
-### App Live View is running at http://${LIVE_VIEW_IP}:5112
+### App Live View is running at http://${LIVE_VIEW_IP}
 
 EOF
 fi

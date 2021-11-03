@@ -107,7 +107,22 @@ log "Installing tanzu CLI"
 
 read -p 'Tanzu Network UAA Refresh Token: ' PIVNET_TOKEN
 pivnet login --api-token="$PIVNET_TOKEN"
-pivnet download-product-files --download-dir $DOWNLOADS --product-slug='tanzu-application-platform' --release-version='0.3.0-build.5' --product-file-id=1073950
+TAP_VERSION=$(pivnet releases -p tanzu-application-platform --format=json | \
+  jq -r 'sort_by(.updated_at)[-1].version')
+
+log "Latest TAP release found is $TAP_VERSION"
+
+FILE_ID=$(pivnet product-files \
+  -p tanzu-application-platform \
+  -r $TAP_VERSION \
+  --format=json | jq '.[] | select(.name == "tanzu-framework-bundle-linux").id' )
+
+pivnet download-product-files \
+  --download-dir $DOWNLOADS \
+  --product-slug='tanzu-application-platform' \
+  --release-version=$TAP_VERSION \
+  --product-file-id=$FILE_ID
+
 TANZU_DIR=$HOME/tanzu
 
 if [[ -d $TANZU_DIR ]]
@@ -119,9 +134,11 @@ then
   tanzu plugin delete apps
 
   test -d $TANZU_DIR/cli/accelerator/v0.5.0 && \
+    test ! -d $TANZU_DIR/cli/accelerator/OLD.v0.5.0 && \
     mv $TANZU_DIR/cli/accelerator/v0.5.0 $TANZU_DIR/cli/accelerator/OLD.v0.5.0
-  test -d $TANZU_DIR/cli/accelerator/v0.5.0
-    mv $TANZU_DIR/cli/accelerator/v0.5.0 $TANZU_DIR/cli/apps/OLD.v0.5.0
+  test -d $TANZU_DIR/cli/apps/v0.5.0 && \
+    test ! -d $TANZU_DIR/cli/apps/OLD.v0.5.0 && \
+    mv $TANZU_DIR/cli/apps/v0.5.0 $TANZU_DIR/cli/apps/OLD.v0.5.0
 else
   UPGRADE_TANZU=false
   mkdir -p $TANZU_DIR
