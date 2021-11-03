@@ -145,7 +145,8 @@ else
 fi
 
 tar xvf $DOWNLOADS/tanzu-framework-linux-amd64.tar -C $TANZU_DIR
-sudo install $TANZU_DIR/cli/core/v0.8.0/tanzu-core-linux_amd64 /usr/local/bin/tanzu
+MOST_RECENT_CLI=$(find $TANZU_DIR/cli/core/ -name tanzu-core-linux_amd64 | xargs ls -t | head -n 1)
+sudo install $MOST_RECENT_CLI /usr/local/bin/tanzu
 
 if $UPGRADE_TANZU
 then
