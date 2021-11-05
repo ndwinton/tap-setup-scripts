@@ -2,7 +2,7 @@
 #
 # Tanzu Application Platform installation script
 
-TAP_VERSION=0.3.0-build.7
+TAP_VERSION=0.3.0-build.8
 
 set -e
 
