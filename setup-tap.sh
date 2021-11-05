@@ -251,8 +251,6 @@ cat <<EOT
 This should be one of the following:
 
 dev-light - the "Developer Light" profile
-operator-light - the "Operator Light" profile
-shared-tools - the "Shared Tools" profile
 full - a full TAP installation (the default)
 
 EOT
@@ -260,7 +258,7 @@ EOT
 findOrPromptWithDefault INSTALL_PROFILE "Profile" "full"
 
 case "$INSTALL_PROFILE" in
-full|dev-light|operator-light|shared-tools)
+full|dev-light)
   ;;
 *)
   echo "ERROR: Invalid value for INSTALL_PROFILE: $INSTALL_PROFILE"
