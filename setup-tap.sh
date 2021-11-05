@@ -85,13 +85,18 @@ function installLatest() {
 
   local version=$(latestVersion $package)
 
-  tanzu package installed update --install \
+  logRun tanzu package installed update --install \
     $name -p $package -v $version \
     -n tap-install \
     --poll-timeout $timeout \
-    ${values:+-f} $values \
+    ${values:+-f} $values
 
   tanzu package installed get $name -n tap-install
+}
+
+function logRun() {
+  message "Running: $*"
+  "$@"
 }
 
 function isLocal() {
@@ -254,6 +259,14 @@ EOT
 
 findOrPromptWithDefault INSTALL_PROFILE "Profile" "full"
 
+case "$INSTALL_PROFILE" in
+full|dev-light|operator-light|shared-tools)
+  ;;
+*)
+  echo "ERROR: Invalid value for INSTALL_PROFILE: $INSTALL_PROFILE"
+  exit 1
+esac
+
 if $DO_INIT
 then
   deployKappController
@@ -271,6 +284,10 @@ tanzu package available list --namespace tap-install
 
 banner "Deploying TAP Profile: ${INSTALL_PROFILE} ..."
 
+SYS_DOMAIN="sys.${DOMAIN}"
+APPS_DOMAIN="apps.${DOMAIN}"
+GUI_DOMAIN="gui.${SYS_DOMAIN}"
+
 if isLocal
 then
   CNR_PROVIDER="local"
@@ -278,14 +295,13 @@ then
   AA_SERVICE_TYPE='NodePort'
   ALV_SERVICE_TYPE='ClusterIP'
   # Can't use vcap.me for educates
-  EDUCATES_DOMAIN="$(hostname -I | cut -d' ' -f1).nip.io"
-
+  EDUCATES_DOMAIN="educates.$(hostname -I | cut -d' ' -f1).nip.io"
 else
   CNR_PROVIDER=""
   CNR_LOCAL_DNS="false"
   AA_SERVICE_TYPE='LoadBalancer'
   ALV_SERVICE_TYPE='LoadBalancer'
-  EDUCATES_DOMAIN=$DOMAIN
+  EDUCATES_DOMAIN=educates.$SYS_DOMAIN
 fi
 
 cat > tap-values.yaml <<EOF
@@ -303,7 +319,7 @@ cnrs:
   provider: ${CNR_PROVIDER}
   local_dns:
     enable: "${CNR_LOCAL_DNS}"
-    domain: "${DOMAIN}"
+    domain: "${APPS_DOMAIN}"
 
 accelerator:
   server:
@@ -333,7 +349,37 @@ ootb_supply_chain_testing_scanning:
     repository: "${REG_BASE}"
 
 learningcenter:
-  ingressDomain: "educates.${EDUCATES_DOMAIN}"
+  ingressDomain: ${EDUCATES_DOMAIN}"
+
+tap_gui:  # Minimal setup
+  namespace: tap-gui
+  service_type: LoadBalancer
+  app-config:
+    app:
+      baseUrl: http://${GUI_DOMAIN}:7000
+    #
+    # There are default public GitHub and GitLab integrations
+    # You only need to add values such as the following if you want
+    # to access private repositories
+    #
+    # integrations:
+    #   github:
+    #     - host: github.com
+    #       token: <GITHUB-TOKEN>
+    #   gitlab:
+    #     - host: <GITLAB-HOST>
+    #       apiBaseUrl: https://<GITLAB-URL>/api/v4
+    #       token: <GITLAB-TOKEN>
+    #
+    catalog:
+      locations:
+        # REPLACE THE FOLLOWING URL WITH YOUR OWN CATALOG
+        - type: url
+          target: https://raw.githubusercontent.com/ndwinton/tap-gui-blank-catalog/main/catalog-info.yaml
+    backend:
+        baseUrl: https://${GUI_DOMAIN}:7000
+        cors:
+            origin: https://${GUI_DOMAIN}:7000
 
 EOF
 
@@ -344,7 +390,7 @@ banner "Setting CNR (knative) domain to $DOMAIN ..."
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 data:
-  $DOMAIN: |
+  $APPS_DOMAIN: |
 kind: ConfigMap
 metadata:
   name: config-domain
@@ -356,7 +402,7 @@ banner "Setting up secrets, accounts and roles for default developer namespace"
 tanzu secret registry delete registry-credentials -y || true
 waitForRemoval kubectl get secret registry-credentials -o json
 
-# The following is a workaround for a Beta 2 bug
+# The following is a workaround for a Beta 2/3 bug
 if [[ "$REG_HOST" == "index.docker.io" ]]
 then
   REG_CRED_HOST="https://index.docker.io/v1/"
@@ -465,15 +511,18 @@ else
   ENVOY_IP=$(kubectl get svc envoy -n contour-external -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
   ACCELERATOR_IP=$(kubectl get svc acc-ui-server -n accelerator-system -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
   LIVE_VIEW_IP=$(kubectl get svc application-live-view-5112 -n app-live-view -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
-
+  GUI_IP=$(kubectl get svc server -n tap-gui -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
   cat <<EOF
 
 ###
 ### Applications deployed in TAP will run at ${ENVOY_IP}
-### Please configure DNS for *.${DOMAIN} to point to that address
+### Please configure DNS for *.${APPS_DOMAIN} to point to that address
+###
+### The TAP GUI will run at http://${GUI_DOMAIN}:7000
+### Please configure DNS for $GUI_DOMAIN to map to ${GUI_IP}
 ###
 
-### App Accelerator is at http://${ACCELERATOR_IP}
+### App Accelerator is running at http://${ACCELERATOR_IP}
 
 ### App Live View is running at http://${LIVE_VIEW_IP}
 
@@ -502,10 +551,9 @@ tanzu package installed list --namespace tap-install -o json | \
   jq -r '.[] | (.name + " " + .status)' | \
   while read package status
   do
-    if [[ $status != "Reconcile succeeded" ]]
+    if [[ "$status" != "Reconcile succeeded" ]]
     then
-      message "ERROR: At least one package failed to reconcile"
-      tanzu package installed list --namespace tap-install
+      message "ERROR: At least one package ($package) failed to reconcile ($status)"
       exit 1
     fi
   done
