@@ -2,9 +2,15 @@
 #
 # Tanzu Application Platform installation script
 
-TAP_VERSION=0.3.0-build.8
+TAP_VERSION=0.3.0
 
 set -e
+
+source $(dirname $0)/functions.sh
+
+#####
+##### Main code starts here
+#####
 
 DO_INIT=true
 for arg in "$@"
@@ -15,166 +21,6 @@ do
     ;;
   esac
 done
-
-function banner() {
-  local line
-  echo ""
-  echo "###"
-  for line in "$@"
-  do
-    echo "### $line"
-  done
-  echo "###"
-  echo ""
-}
-
-function message() {
-  local line
-  for line in "$@"
-  do
-    echo ">>> $line"
-  done
-}
-
-function findOrPrompt() {
-  local varName="$1"
-  local prompt="$2"
-
-  if [[ -z "${!varName}" ]]
-  then
-    echo "$varName not found in environment"
-    read -p "$prompt: " $varName
-  else
-    echo "Value for $varName found in environment"
-  fi
-}
-
-function findOrPromptWithDefault() {
-  local varName="$1"
-  local prompt="$2"
-  local default="$3"
-
-  findOrPrompt "$varName" "$prompt [$default]"
-  if [[ -z "${!varName}" ]]
-  then
-    export ${varName}="$default"
-  fi
-}
-
-# Get the latest version of a package
-function latestVersion() {
-  tanzu package available list $1 -n tap-install -o json | \
-    jq -r 'sort_by(."released-at")[-1].version'
-}
-
-# Wait until there is no (non-error) output from a command
-function waitForRemoval() {
-  while [[ -n $("$@" 2> /dev/null || true) ]]
-  do
-    message "Waiting for resource to disappear ..."
-    sleep 5
-  done
-}
-
-# Updates or installs the latest version of a package
-function installLatest() {
-  local name=$1
-  local package=$2
-  local values=$3
-  local timeout=${4:-10m}
-
-  local version=$(latestVersion $package)
-
-  logRun tanzu package installed update --install \
-    $name -p $package -v $version \
-    -n tap-install \
-    --poll-timeout $timeout \
-    ${values:+-f} $values
-
-  tanzu package installed get $name -n tap-install
-}
-
-function logRun() {
-  message "Running: $*"
-  "$@"
-}
-
-function isLocal() {
-  [[ $DOMAIN == "vcap.me" ]]
-}
-
-function deployKappController() {
-  banner "Deploying kapp-controller"
-
-  # Check if we appear to be running on TCE or TKG.
-  # If so, there will need to be some manual steps taken to delete the
-  # existing kapp-controller
-
-  if kubectl get deployment kapp-controller -n tkg-system 2> /dev/null
-  then
-    banner "You appear to be running on a TCE or TKGcluster." \
-      "You must follow the instructions in the documentation to delete the current" \
-      "kapp-controller deployment before re-running this script." \
-      "" \
-      "The documentation for TCE is at:" \
-      "https://docs-staging.vmware.com/en/VMware-Tanzu-Application-Platform/0.3/tap-0-3/GUID-install-tce.html" \
-      "" \
-      "The documentation for TKG is at:" \
-      "https://docs-staging.vmware.com/en/VMware-Tanzu-Application-Platform/0.3/tap-0-3/GUID-install-tkg.html"
-
-      exit 1
-  fi
-
-  kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/releases/latest/download/release.yml -y
-  kubectl get deployment kapp-controller -n kapp-controller  -o yaml | grep kapp-controller.carvel.dev/version:
-}
-
-function deploySecretgenController() {
-  banner "Deploying secretgen-controller"
-
-  kapp deploy -a sg -f https://github.com/vmware-tanzu/carvel-secretgen-controller/releases/latest/download/release.yml -y
-  kubectl get deployment secretgen-controller -n secretgen-controller -o yaml | grep secretgen-controller.carvel.dev/version:
-}
-
-function createTapNamespace() {
-
-  banner "Creating tap-install namespace"
-
-  (kubectl get ns tap-install 2> /dev/null) || \
-    kubectl create ns tap-install
-}
-
-function createTapRegistrySecret() {
-
-  banner "Creating tap-registry registry secret"
-
-  tanzu secret registry delete tap-registry --namespace tap-install -y || true
-  waitForRemoval kubectl get secret tap-registry --namespace tap-install -o json
-
-  tanzu secret registry add tap-registry \
-    --username "$TN_USERNAME" --password "$TN_PASSWORD" \
-    --server registry.tanzu.vmware.com \
-    --export-to-all-namespaces --namespace tap-install --yes
-}
-
-function loadPackageRepository() {
-  banner "Removing any current TAP package repository"
-
-  tanzu package repository delete tanzu-tap-repository -n tap-install --yes || true
-  waitForRemoval tanzu package repository get tanzu-tap-repository -n tap-install -o json
-
-  banner "Adding TAP package repository"
-
-  tanzu package repository add tanzu-tap-repository \
-      --url registry.tanzu.vmware.com/tanzu-application-platform/tap-packages:$TAP_VERSION \
-      --namespace tap-install
-  tanzu package repository get tanzu-tap-repository --namespace tap-install
-  while [[ $(tanzu package available list --namespace tap-install -o json) == '[]' ]]
-  do
-    message "Waiting for packages ..."
-    sleep 5
-  done
-}
 
 cat <<EOT
 WARNING!
@@ -230,6 +76,14 @@ localhost address. If you use anything other than 'vcap.me' then
 a load-balancer will be created and you will have to map lookups
 for the domain to the address of that load-balancer.
 
+Note that applications will be deployed in the 'apps' sub-domain of
+your supplied domain. For example, if you use the domain 'tap.example.com'
+then your applications will end up with DNS names such as
+'my-awesome-app.default.apps.tap.example.com'.
+
+The TAP GUI and Educates components will be placed under a 'sys'
+sub-domain, for example, 'gui.sys.tap.example.com'.
+
 EOT
 
 findOrPromptWithDefault DOMAIN "Domain" "vcap.me" 
@@ -248,39 +102,75 @@ cat <<EOT
 
 >>> Installation profile
 
-This should be one of the following:
+This should eith be one of the following two built-in profiles:
 
-dev-light - the "Developer Light" profile
-full - a full TAP installation (the default)
+  * dev-light
+  * full
 
+Or it can be a list of one or more of the following components, separated
+by spaces:
+
+  * accelerator (implies source-controller)
+  * api-portal
+  * appliveview
+  * buildservice
+  * cartographer
+  * choreographer (alias for cartographer)
+  * cnrs
+  * conventions-controller
+  * developer-conventions
+  * image-policy-webhook
+  * grype (implies scanning)
+  * learningcenter
+  * learningcenter-workshops (implies learning-center)
+  * ootb-supply-chain-basic
+  * ootb-supply-chain-testing
+  * ootb-supply-chain-testing-scanning
+  * ootb-templates
+  * scanning (implies grype)
+  * service-bindings
+  * services-toolkit
+  * signing (alias for image-policy-webhook)
+  * source-controller
+  * spring-boot-conventions (implies conventions-controller)
+  * tap-gui (implies appliveview)
+  * tbs (alias for buildservice)
+
+Note that the choice of supply chain (e.g. testing) will also cause
+the matching ootb-supply-chain-* component to be installed.
 EOT
 
 findOrPromptWithDefault INSTALL_PROFILE "Profile" "full"
 
-case "$INSTALL_PROFILE" in
-full|dev-light)
-  ;;
-*)
-  echo "ERROR: Invalid value for INSTALL_PROFILE: $INSTALL_PROFILE"
-  exit 1
-esac
+validateAndEnableInstallationOptions
 
-if $DO_INIT
-then
-  deployKappController
+cat <<EOT
+ 
+>>> GUI Catalog Info URL
 
-  deploySecretgenController
+The TAP GUI needs information about the components and systems which
+it should display. This is done by providing a URL to a 'catalog-info.yaml'
+file. The default value provided is a publicly accessible blank catalog.
 
-  createTapNamespace
+EOT
 
-  createTapRegistrySecret
+findOrPromptWithDefault GUI_CATALOG_URL \
+  "Catalog URL" \
+  "https://github.com/ndwinton/tap-gui-blank-catalog/blob/main/catalog-info.yaml"
 
-  loadPackageRepository
-fi
+cat <<EOT
 
-tanzu package available list --namespace tap-install
+>>> Default supply chain
 
-banner "Deploying TAP Profile: ${INSTALL_PROFILE} ..."
+This should be one of the following: basic, testing, scanning or none
+
+EOT
+
+findOrPromptWithDefault SUPPLY_CHAIN "Supply chain" "basic"
+
+validateAndEnableSupplyChainComponent
+
+### Set up (global, sigh ...) data used elsewhere
 
 SYS_DOMAIN="sys.${DOMAIN}"
 APPS_DOMAIN="apps.${DOMAIN}"
@@ -292,6 +182,7 @@ then
   CNR_LOCAL_DNS="true"
   AA_SERVICE_TYPE='NodePort'
   ALV_SERVICE_TYPE='ClusterIP'
+  GUI_SERVICE_TYPE='ClusterIP'
   # Can't use vcap.me for educates
   EDUCATES_DOMAIN="educates.$(hostname -I | cut -d' ' -f1).nip.io"
 else
@@ -299,89 +190,53 @@ else
   CNR_LOCAL_DNS="false"
   AA_SERVICE_TYPE='LoadBalancer'
   ALV_SERVICE_TYPE='LoadBalancer'
+  GUI_SERVICE_TYPE='LoadBalancer'
   EDUCATES_DOMAIN=educates.$SYS_DOMAIN
 fi
 
-cat > tap-values.yaml <<EOF
-profile: ${INSTALL_PROFILE}
+if $DO_INIT
+then
+  deployKappController
+  deploySecretgenController
+  if ! isEnabled full dev-light
+  then
+    deployCertManager
+    deployFluxCD
+  fi
+  createTapNamespace
+  createTapRegistrySecret
+  loadPackageRepository
+fi
 
-buildservice:
-  tanzunet_username: "${TN_USERNAME}"
-  tanzunet_password: "${TN_PASSWORD}"
-  kp_default_repository: "$REGISTRY"
-  kp_default_repository_username: "$REG_USERNAME"
-  kp_default_repository_password: |-
-$(echo "${REG_PASSWORD}" | sed -e 's/^/    /')
+tanzu package available list --namespace tap-install
 
-cnrs:
-  provider: ${CNR_PROVIDER}
-  local_dns:
-    enable: "${CNR_LOCAL_DNS}"
-    domain: "${APPS_DOMAIN}"
+# If using the 'unbundled' profile these will configure
+# and install the appropriate packages, otherwise they will
+# just generate the config files
 
-accelerator:
-  server:
-    service_type: "${AA_SERVICE_TYPE}"
-    watched_namespace: "default"
+configureCloudNativeRuntimes
+configureConventionController
+configureSourceController
+configureAppAccelerator
+configureTanzuBuildService
+configureChoreographer
+configureOotbTemplates
+configureOotbSupplyChains
+configureDeveloperConventions
+configureSpringBootConventions
+configureAppLiveView
+configureTapGui
+configureLearningCenter
+configureScstStore
+configureSigning
+configureScanning
+configureApiPortal
+configureServicesToolkit
 
-appliveview:
-  connector_namespaces: [default]
-  service_type: "${ALV_SERVICE_TYPE}"
+configureBuiltInProfiles
 
-ootb_supply_chain_basic:
-  service_account: default
-  registry:
-    server: "${REG_HOST}"
-    repository: "${REG_BASE}"
+configureImageSigningPolicy
 
-ootb_supply_chain_testing:
-  service_account: default
-  registry:
-    server: "${REG_HOST}"
-    repository: "${REG_BASE}"
-
-ootb_supply_chain_testing_scanning:
-  service_account: default
-  registry:
-    server: "${REG_HOST}"
-    repository: "${REG_BASE}"
-
-learningcenter:
-  ingressDomain: ${EDUCATES_DOMAIN}"
-
-tap_gui:  # Minimal setup
-  namespace: tap-gui
-  service_type: LoadBalancer
-  app-config:
-    app:
-      baseUrl: http://${GUI_DOMAIN}:7000
-    #
-    # There are default public GitHub and GitLab integrations
-    # You only need to add values such as the following if you want
-    # to access private repositories
-    #
-    # integrations:
-    #   github:
-    #     - host: github.com
-    #       token: <GITHUB-TOKEN>
-    #   gitlab:
-    #     - host: <GITLAB-HOST>
-    #       apiBaseUrl: https://<GITLAB-URL>/api/v4
-    #       token: <GITLAB-TOKEN>
-    #
-    catalog:
-      locations:
-        # REPLACE THE FOLLOWING URL WITH YOUR OWN CATALOG
-        - type: url
-          target: https://raw.githubusercontent.com/ndwinton/tap-gui-blank-catalog/main/catalog-info.yaml
-    backend:
-        baseUrl: https://${GUI_DOMAIN}:7000
-        cors:
-            origin: https://${GUI_DOMAIN}:7000
-
-EOF
-
-installLatest tap tap.tanzu.vmware.com tap-values.yaml 30m
 
 banner "Setting CNR (knative) domain to $DOMAIN ..."
 
@@ -394,6 +249,7 @@ metadata:
   name: config-domain
   namespace: knative-serving
 EOF
+
 
 banner "Setting up secrets, accounts and roles for default developer namespace"
 
