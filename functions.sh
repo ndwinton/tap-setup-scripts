@@ -311,7 +311,7 @@ function enablePreRequisites {
 }
 
 function configureCloudNativeRuntimes {
-  requireValue CNR_PROVIDER CNR_LOCAL_DNS APPS_DOMAIN
+  requireValue CNR_LOCAL_DNS APPS_DOMAIN
 
   cat > cnrs-values.yaml <<EOF
 ---
