@@ -276,7 +276,7 @@ function validateAndEnableSupplyChainComponent {
 function configureCloudNativeRuntimes {
   requireValue CNR_PROVIDER CNR_LOCAL_DNS APPS_DOMAIN
 
-  cat > cnr-values.yaml <<EOF
+  cat > cnrs-values.yaml <<EOF
 ---
 provider: ${CNR_PROVIDER}
 local_dns:
@@ -712,7 +712,7 @@ function configureBuiltInProfiles {
 profile: $INSTALL_PROFILE
 
 cnrs:
-$(embedYaml cnr-values.yaml)
+$(embedYaml cnrs-values.yaml)
 
 buildservice:
 $(embedYaml tbs-values.yaml)
