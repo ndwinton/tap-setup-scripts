@@ -107,37 +107,40 @@ This should eith be one of the following two built-in profiles:
   * dev-light
   * full
 
-Or it can be a list of one or more of the following components, separated
-by spaces:
+Or it can be a list of one or more of the following packages, separated
+by spaces (values in brackets indicate prerequisites which will
+alos be installed automatically by the script):
 
-  * accelerator (implies source-controller)
+  * accelerator               [source-controller]
   * api-portal
   * appliveview
   * buildservice
-  * cartographer
-  * choreographer (alias for cartographer)
+  * cartographer              [source-controller]
   * cnrs
-  * conventions-controller
-  * developer-conventions
+  * convention-controller
+  * developer-conventions     [convention-controller]
   * image-policy-webhook
-  * grype (implies scanning)
+  * grype                     [scanning]
   * learningcenter
-  * learningcenter-workshops (implies learning-center)
-  * ootb-supply-chain-basic
-  * ootb-supply-chain-testing
+  * learningcenter-workshops  [learning-center
+  * ootb-supply-chain-basic   [ootb-templates]
+  * ootb-supply-chain-testing [tekton, ootb-templates]
   * ootb-supply-chain-testing-scanning
-  * ootb-templates
-  * scanning (implies grype)
-  * service-bindings
-  * services-toolkit
+                              [tekton, scanning, ootb-templates]
+  * ootb-templates            [convention-controller, cartographer]
+  * scanning                  [grype]
+  * service-bindings          [services-toolkit]
+  * services-toolkit          [service-bindings]
   * signing (alias for image-policy-webhook)
-  * source-controller
-  * spring-boot-conventions (implies conventions-controller)
-  * tap-gui (implies appliveview)
+  * source-controller         
+  * spring-boot-conventions   [convention-controller]
+  * tap-gui                   [appliveview]
   * tbs (alias for buildservice)
+  * tekton
 
 Note that the choice of supply chain (e.g. testing) will also cause
-the matching ootb-supply-chain-* component to be installed.
+the matching ootb-supply-chain-* package and its dependencies
+to be installed.
 EOT
 
 findOrPromptWithDefault INSTALL_PROFILE "Profile" "full"
@@ -169,6 +172,9 @@ EOT
 findOrPromptWithDefault SUPPLY_CHAIN "Supply chain" "basic"
 
 validateAndEnableSupplyChainComponent
+enablePreRequisites
+
+banner "The following packages will be installed:" ${!ENABLED[*]}
 
 ### Set up (global, sigh ...) data used elsewhere
 
@@ -231,7 +237,9 @@ configureScstStore
 configureSigning
 configureScanning
 configureApiPortal
+configureTekton
 configureServicesToolkit
+configureServiceBindings
 
 configureBuiltInProfiles
 
@@ -341,10 +349,10 @@ kubectl patch serviceaccount default \
 
 if isLocal
 then
-  banner "Setting up port forwarding for App Acclerator and App Live View"
+  banner "Setting up port forwarding for App Acclerator and App Live View (if present)"
 
-  kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
-  kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
+  isEnabled accelerator && kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
+  isEnabled appliveview && kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
 
   cat <<EOF
 

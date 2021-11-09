@@ -1,5 +1,3 @@
-# This is work in progress on Beta 3, build 7
-
 ## Setting up Tanzu Application Platform on a local machine
 
 These are scripts I've used to set up beta versions of
@@ -53,6 +51,25 @@ up automatically.
 If set, values will be taken from `TN_USERNAME` and `TN_PASSWORD` for
 the Tanzu Network and `REGISTRY`, `REG_USERNAME` and `REG_PASSWORD` for
 the registry.
+
+The latest beta build of TAP supports the concept of installation
+profiles, and the script reflects this too.
+You can specify that you want to use the 'full' or 'dev-light' profiles
+supported by TAP, when prompted, or set the `INSTALL_PROFILE`
+environment variable.
+
+In addition, you can use the script to do an "unbundled" install
+and just pick the packages that you want, for example, just
+installing Cloud-Native Runtimes and Tanzu Build Service along
+with a basic supply chain.
+The script should take care of installing pre-requisite packages in
+this case, but this is not thoroughly tested.
+
+Note that you cannot mix the TAP profiles with the selection of
+individual packages that form part of those profiles.
+
+The script will also prompt for the location of a catalog file to
+use with the TAP GUI as well as the choice of supply chain.
 
 By default, the script assumes an installation on a local cluster,
 such as Kind or Minikub, where services will be accessed via the

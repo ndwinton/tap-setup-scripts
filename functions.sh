@@ -250,27 +250,64 @@ function validateAndEnableSupplyChainComponent {
   requireValue SUPPLY_CHAIN
 
   case $SUPPLY_CHAIN in
-  basic)
-    ! isEnabled full dev-light && ENABLED[ootb-supply-chain-basic]=true
-    ;;
-  testing)
-    ! isEnabled full dev-light && ENABLED[ootb-supply-chain-testing]=true
-    ;;
-  scanning)
-    ! isEnabled full dev-light && ENABLED[ootb-supply-chain-testing-scanning]=true
+  basic|testing|scanning)
+    isEnabled full dev-light && return 0
     ;;
   none)
     if isEnabled full dev-light
     then
       message "Supply chain type cannot be 'none' for full or dev-light profiles -- using 'basic'"
       SUPPLY_CHAIN='basic'
+      return 0
     fi
     ;;
   *)
     fatal "Invalid supply-chain value: $SUPPLY_CHAIN"
     ;;
   esac
+
+  case $SUPPLY_CHAIN in
+  basic)
+    ENABLED[ootb-supply-chain-basic]=true
+    ;;
+  testing)
+    ENABLED[ootb-supply-chain-testing]=true
+    ;;
+  scanning)
+    ENABLED[ootb-supply-chain-testing-scanning]=true
+    ;;
+  esac
+
   return 0
+}
+
+declare -A PRE_REQ
+PRE_REQ[accelerator]="source-controller"
+PRE_REQ[cartographer]="source-controller"
+PRE_REQ[developer-conventions]="convention-controller"
+PRE_REQ[learningcenter-workshops]="learningcenter"
+PRE_REQ[ootb-templates]="convention-controller cartographer ${PRE_REQ[cartographer]}"
+PRE_REQ[ootb-supply-chain-basic]="ootb-templates ${PRE_REQ[ootb-templates]}"
+PRE_REQ[ootb-supply-chain-testing]="tekton ootb-templates ${PRE_REQ[ootb-templates]}"
+PRE_REQ[ootb-supply-chain-testing-scanning]="tekton scanning ootb-templates ${PRE_REQ[ootb-templates]}"
+PRE_REQ[scanning]="grype"
+PRE_REQ[grype]="scanning"
+PRE_REQ[service-bindings]="services-toolkit"
+PRE_REQ[services-toolkit]="service-bindings"
+PRE_REQ[spring-boot-conventions]="convention-controller"
+PRE_REQ[tap-gui]="appliveview"
+
+function enablePreRequisites {
+  local initial=${!ENABLED[*]}
+  local package
+
+  for package in $initial
+  do
+    for preReq in ${PRE_REQ[$package]}
+    do
+      ENABLED[$preReq]=true
+    done
+  done
 }
 
 function configureCloudNativeRuntimes {
@@ -293,7 +330,7 @@ EOF
 }
 
 function configureConventionController {
-  if isEnabled conventions-controller spring-boot-conventions
+  if isEnabled convention-controller
   then
     banner "Installing Convention Controller"
 
@@ -303,7 +340,7 @@ function configureConventionController {
 }
 
 function configureSourceController {
-  if isEnabled source-controller accelerator
+  if isEnabled source-controller
   then
     banner "Installing Source Controller"
 
@@ -369,10 +406,7 @@ function configureChoreographer {
 }
 
 function configureOotbTemplates {
-  if isEnabled ootb-templates \
-      ootb-supply-chain-basic \
-      ootb-supply-chain-testing \
-      ootb-supply-chain-testing-scanning
+  if isEnabled ootb-templates
   then
     banner "Installing OOTB Templates"
 
@@ -420,7 +454,7 @@ EOF
 }
 
 function configureDeveloperConventions {
-  if isEnabled developer-conventions spring-boot-conventions
+  if isEnabled developer-conventions
   then
     banner "Installing Developer Conventions"
 
@@ -446,7 +480,7 @@ connector_namespaces: [default]
 service_type: "${ALV_SERVICE_TYPE}"
 EOF
 
-  if isEnabled appliveview tap-gui
+  if isEnabled appliveview
   then
     installLatest appliveview \
       appliveview.tanzu.vmware.com \
@@ -504,13 +538,17 @@ function configureLearningCenter {
 ingressDomain: ${EDUCATES_DOMAIN}
 EOF
 
-  if isEnabled learningcenter learningcenter-workshops
+  if isEnabled learningcenter
   then
     banner "Installing Learning Center"
     installLatest learning-center \
       learningcenter.tanzu.vmware.com \
       learning-center-values.yaml
-    
+  fi
+
+  if isEnabled learningcenter-workshops
+  then
+    banner "Installing Learning Center Workshops"
     installLatest learningcenter-workshops \
       workshops.learningcenter.tanzu.vmware.com
   fi
@@ -559,7 +597,7 @@ EOF
 }
 
 function configureImageSigningPolicy {
-  if isEnabled full dev-light signing
+  if isEnabled full dev-light signing image-policy-webhook
   then
     banner "Creating image-policy-registry-credentials service account and image pull secret"
 
@@ -626,7 +664,7 @@ EOF
 function configureScanning {
   createScanControllerValues
 
-  if isEnabled scanning
+  if isEnabled scanning grype
   then
     banner "Installing Supply Chain Security Tools - Scan"
 
@@ -700,6 +738,14 @@ function configureServicesToolkit {
     banner "Installing Services Toolkit"
 
     installLatest services-toolkit services-toolkit.tanzu.vmware.com
+  fi
+}
+
+function configureTekton {
+  if isEnabled tekton
+  then
+    kapp deploy --yes -a tekton \
+      -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.28.0/release.yaml
   fi
 }
 
