@@ -808,11 +808,11 @@ $(embedYaml app-accelerator-values.yaml)
 learningcenter:
 $(embedYaml learning-center-values.yaml)
 EOF
-
-      banner "Installing core TAP profile: $INSTALL_PROFILE"
-
-      installLatest tap tap.tanzu.vmware.com tap-values.yaml 30m
     fi
+
+    banner "Installing core TAP profile: $INSTALL_PROFILE"
+
+    installLatest tap tap.tanzu.vmware.com tap-values.yaml 30m
   fi
 }
 
