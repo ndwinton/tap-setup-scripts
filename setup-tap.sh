@@ -351,8 +351,8 @@ if isLocal
 then
   banner "Setting up port forwarding for App Acclerator and App Live View (if present)"
 
-  isEnabled accelerator && kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
-  isEnabled appliveview && kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
+  isEnabled accelerator full && kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
+  isEnabled appliveview full dev-light && kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
 
   cat <<EOF
 
