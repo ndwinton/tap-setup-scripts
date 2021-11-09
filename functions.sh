@@ -517,9 +517,9 @@ app-config:
       - type: url
         target: ${GUI_CATALOG_URL}
   backend:
-      baseUrl: https://${GUI_DOMAIN}:7000
+      baseUrl: http://${GUI_DOMAIN}:7000
       cors:
-          origin: https://${GUI_DOMAIN}:7000
+          origin: http://${GUI_DOMAIN}:7000
   
 
 EOF
