@@ -816,3 +816,7 @@ EOF
   fi
 }
 
+function hostIp {
+  # This works on both macOS and ~Linux
+  ifconfig -a | awk '/^en/,/(inet |status|TX error)/ { if ($1 == "inet") { print $2; exit; } }'
+}

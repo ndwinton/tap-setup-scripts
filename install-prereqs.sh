@@ -34,6 +34,12 @@ function usingWsl() {
   uname -r | grep -qi 'microsoft'
 }
 
+if [[ "$(uname -s)/$(uname -m)" != "Linux/x86_64" ]]
+then
+  log "Sorry, this script only handles Linux x86_64 systems"
+  exit 1
+fi
+
 log "Installing basic tools"
 
 sudo apt-get update -y

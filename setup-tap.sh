@@ -190,7 +190,7 @@ then
   ALV_SERVICE_TYPE='ClusterIP'
   GUI_SERVICE_TYPE='ClusterIP'
   # Can't use vcap.me for educates
-  EDUCATES_DOMAIN="educates.$(hostname -I | cut -d' ' -f1).nip.io"
+  EDUCATES_DOMAIN="educates.$(hostIp).nip.io"
 else
   CNR_PROVIDER=""
   CNR_LOCAL_DNS="false"
