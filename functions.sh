@@ -236,6 +236,40 @@ function validateAndEnableInstallationOptions {
 
   for value in $INSTALL_PROFILE
   do
+    case $value in
+    accelerator) ;;
+    api-portal) ;;
+    appliveview) ;;
+    buildservice) ;;
+    cartographer) ;;
+    cnrs) ;;
+    conventions-controller) ;;
+    convention-controller) ;; # Alias for above
+    dev-light) ;;
+    developer-conventions) ;;
+    full) ;;
+    image-policy-webhook) ;;
+    grype) ;;
+    learningcenter) ;;
+    learningcenter-workshops) ;;
+    ootb-supply-chain-basic) ;;
+    ootb-supply-chain-testing) ;;
+    ootb-supply-chain-testing-scanning) ;;
+    ootb-templates) ;;
+    scanning) ;;
+    service-bindings) ;;
+    services-toolkit) ;;
+    signing) ;;
+    source-controller) ;;
+    spring-boot-conventions) ;;
+    tap-gui) ;;
+    tbs) ;;
+    tekton) ;;
+    *)
+      fatal "Invalid INSTALL_PROFILE component: $value"
+      ;;
+    esac
+
     ENABLED[$value]=true
   done
 
@@ -284,9 +318,9 @@ function validateAndEnableSupplyChainComponent {
 declare -A PRE_REQ
 PRE_REQ[accelerator]="source-controller"
 PRE_REQ[cartographer]="source-controller"
-PRE_REQ[developer-conventions]="convention-controller"
+PRE_REQ[developer-conventions]="conventions-controller"
 PRE_REQ[learningcenter-workshops]="learningcenter"
-PRE_REQ[ootb-templates]="convention-controller cartographer ${PRE_REQ[cartographer]}"
+PRE_REQ[ootb-templates]="conventions-controller cartographer ${PRE_REQ[cartographer]}"
 PRE_REQ[ootb-supply-chain-basic]="ootb-templates ${PRE_REQ[ootb-templates]}"
 PRE_REQ[ootb-supply-chain-testing]="tekton ootb-templates ${PRE_REQ[ootb-templates]}"
 PRE_REQ[ootb-supply-chain-testing-scanning]="tekton scanning ootb-templates ${PRE_REQ[ootb-templates]}"
@@ -294,7 +328,7 @@ PRE_REQ[scanning]="grype"
 PRE_REQ[grype]="scanning"
 PRE_REQ[service-bindings]="services-toolkit"
 PRE_REQ[services-toolkit]="service-bindings"
-PRE_REQ[spring-boot-conventions]="convention-controller"
+PRE_REQ[spring-boot-conventions]="conventions-controller"
 PRE_REQ[tap-gui]="appliveview"
 
 function enablePreRequisites {
@@ -329,12 +363,12 @@ EOF
   fi
 }
 
-function configureConventionController {
-  if isEnabled convention-controller
+function configureConventionsController {
+  if isEnabled conventions-controller convention-controller
   then
-    banner "Installing Convention Controller"
+    banner "Installing Conventions Controller"
 
-    installLatest convention-controller controller.conventions.apps.tanzu.vmware.com
+    installLatest conventions-controller controller.conventions.apps.tanzu.vmware.com
     kubectl get pods -n conventions-system
   fi
 }
