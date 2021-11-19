@@ -221,7 +221,7 @@ tanzu package available list --namespace tap-install
 # just generate the config files
 
 configureCloudNativeRuntimes
-configureConventionController
+configureConventionsController
 configureSourceController
 configureAppAccelerator
 configureTanzuBuildService

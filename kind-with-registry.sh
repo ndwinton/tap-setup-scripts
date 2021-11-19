@@ -1,13 +1,27 @@
 #!/bin/sh
 set -o errexit
 
-# create registry container unless it already exists
-reg_name='kind-registry'
-reg_port='5000'
-running="$(docker inspect -f '{{.State.Running}}' "${reg_name}" 2>/dev/null || true)"
+hostIp() {
+  # This works on both macOS and Linux
+  ifconfig -a | awk '/^en/,/(inet |status|TX error)/ { if ($1 == "inet") { print $2; exit; } }'
+}
+
+# Create registry container unless it already exists
+ROOT=$(cd $(dirname $0) && pwd)
+REG_NAME='kind-registry'
+REG_PORT='5000'
+REGISTRY="$(hostIp):$REG_PORT"
+running="$(docker inspect -f '{{.State.Running}}' "${REG_NAME}" 2>/dev/null || true)"
 if [ "${running}" != 'true' ]; then
+  echo "Creating local registry at $REGISTRY: user = admin, password = admin"
   docker run \
-    -d --restart=always -p "127.0.0.1:${reg_port}:5000" --name "${reg_name}" \
+    --detach \
+    -v "$ROOT/auth:/auth" \
+    -e "REGISTRY_AUTH=htpasswd" \
+    -e "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" \
+    -e "REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd" \
+    --name "$REG_NAME" \
+    --publish "${REG_PORT}":5000 \
     registry:2
 fi
 
@@ -17,8 +31,13 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 containerdConfigPatches:
 - |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]
-    endpoint = ["http://${reg_name}:${reg_port}"]
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."${REGISTRY}"]
+        endpoint = ["http://${REGISTRY}"]
+    [plugins."io.containerd.grpc.v1.cri".registry.configs]
+      [plugins."io.containerd.grpc.v1.cri".registry.configs."${REGISTRY}".tls]
+        insecure_skip_verify = true
 name: tap
 nodes:
 - role: control-plane
@@ -38,9 +57,9 @@ nodes:
     protocol: tcp
 EOF
 
-# connect the registry to the cluster network
+# Connect the registry to the cluster network
 # (the network may already be connected)
-docker network connect "kind" "${reg_name}" || true
+docker network connect "kind" "${REG_NAME}" || true
 
 # Document the local registry
 # https://github.com/kubernetes/enhancements/tree/master/keps/sig-cluster-lifecycle/generic/1755-communicating-a-local-registry
@@ -52,7 +71,7 @@ metadata:
   namespace: kube-public
 data:
   localRegistryHosting.v1: |
-    host: "localhost:${reg_port}"
+    host: "${REGISTRY}"
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
 EOF
 
