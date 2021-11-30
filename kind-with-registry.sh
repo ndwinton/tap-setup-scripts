@@ -3,7 +3,7 @@ set -o errexit
 
 hostIp() {
   # This works on both macOS and Linux
-  ifconfig -a | awk '/^en/,/(inet |status|TX error)/ { if ($1 == "inet") { print $2; exit; } }'
+  ifconfig -a | awk '/^(en|wl)/,/(inet |status|TX error)/ { if ($1 == "inet") { print $2; exit; } }'
 }
 
 # Create registry container unless it already exists
