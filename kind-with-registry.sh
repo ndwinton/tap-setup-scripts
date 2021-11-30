@@ -25,6 +25,28 @@ if [ "${running}" != 'true' ]; then
     registry:2
 fi
 
+# Configure insecure registry if config file not present
+# (This can only work on Linux)
+if [[ -d /etc/docker && ! -f /etc/docker/daemon.json ]]
+then
+  echo "Creating /etc/docker/daemon.json with $REGISTRY added as insecure registry"
+  sudo cat > /etc/docker/daemon.json <<EOF
+{ "insecure-registries": ["$REGISTRY"] }
+EOF
+  sudo systemctl daemon-reload
+  sudo systemctl restart docker
+else
+  cat <<EOF
+Make sure that the following is added to /etc/docker/daemon.json
+(on Linux), merged in with existing configuration:'
+
+  { "insecure-registries": ["'$REGISTRY'"] }'
+
+With Docker Desktop on macOS this can be added to the 'Docker Engine'
+configuration under 'Preferences'.
+EOF
+fi
+
 # create a cluster with the local registry enabled in containerd
 cat <<EOF | kind create cluster --config=-
 kind: Cluster
