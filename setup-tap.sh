@@ -277,7 +277,7 @@ tanzu secret registry add registry-credentials \
   --username "$REG_USERNAME" \
   --password "$REG_PASSWORD" \
   --namespace default \
-  --export-to-all-namespaces || true
+  --export-to-all-namespaces -y || true
 
 cat > developer-namespace-setup.yaml <<EOF
 apiVersion: v1
