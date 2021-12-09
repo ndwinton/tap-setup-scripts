@@ -30,7 +30,7 @@ fi
 if test -d /etc/docker && test ! -f /etc/docker/daemon.json
 then
   echo "Creating /etc/docker/daemon.json with $REGISTRY added as insecure registry"
-  sudo cat > /etc/docker/daemon.json <<EOF
+  sudo tee /etc/docker/daemon.json > /dev/null <<EOF
 { "insecure-registries": ["$REGISTRY"] }
 EOF
   sudo systemctl daemon-reload
