@@ -27,7 +27,7 @@ fi
 
 # Configure insecure registry if config file not present
 # (This can only work on Linux)
-if [[ -d /etc/docker && ! -f /etc/docker/daemon.json ]]
+if test -d /etc/docker && test ! -f /etc/docker/daemon.json
 then
   echo "Creating /etc/docker/daemon.json with $REGISTRY added as insecure registry"
   sudo cat > /etc/docker/daemon.json <<EOF
@@ -38,9 +38,9 @@ EOF
 else
   cat <<EOF
 Make sure that the following is added to /etc/docker/daemon.json
-(on Linux), merged in with existing configuration:'
+(on Linux), merged in with existing configuration:
 
-  { "insecure-registries": ["'$REGISTRY'"] }'
+  { "insecure-registries": ["$REGISTRY"] }
 
 With Docker Desktop on macOS this can be added to the 'Docker Engine'
 configuration under 'Preferences'.
