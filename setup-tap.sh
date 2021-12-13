@@ -374,23 +374,34 @@ kubectl patch serviceaccount default \
 
 if isLocal
 then
-  banner "Setting up port forwarding for App Acclerator and App Live View (if present)"
+  banner "Setting up port forwarding for App Acclerator, App Live View and TAP GUI (if present)"
 
-  isEnabled accelerator full && kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
-  isEnabled appliveview full dev-light && kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
+  isEnabled full dev cnrs && kubectl port-forward svc/envoy 8080:80 -n tanzu-system-ingress &
+  isEnabled accelerator full dev && kubectl port-forward service/acc-server 8877:80 -n accelerator-system &
+  isEnabled appliveview full dev && kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
+  isEnabled tap-gui full dev && kubectl port-forward svc/server 7000 -n tap-gui &
 
   cat <<EOF
 
-# Port forwarding for App Accelerator and App Live View has been set up,
-# but if you need to restart it, run the following commands.
+# Port forwarding for Envoy (for Cloud Native Runtimes), App Accelerator,
+# App Live View and the TAP GUI has been set up (if configured).
+# If you need to restart it, run the following commands.
 #
+# To set up port forwarding for Envoy (http://*.${APPS_DOMAIN}:8080) run:"
+
+  kubectl port-forward -n tanzu-system-ingress ssvc/envoy 8080:80 &
+
 # To set up port forwarding for App Accelerator (http://localhost:8877) run:"
 
-  kubectl port-forward service/acc-ui-server 8877:80 -n accelerator-system &
+  kubectl port-forward -n accelerator-system svc/acc-server 8877:80 &
 
 # To set up port forwarding for App Live View (http://localhost:5112) run:"
 
   kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
+
+# To set up port forwarding for TAP GUI (http://${GUI_DOMAIN}:7000) run:"
+
+  kubectl port-forward svc/server 7000 -n tap-gui &
 
 EOF
 else
