@@ -2,7 +2,7 @@
 #
 # Tanzu Application Platform installation script
 
-TAP_VERSION=0.3.0
+TAP_VERSION=0.4.0
 
 set -e
 
@@ -102,18 +102,19 @@ cat <<EOT
 
 >>> Installation profile
 
-This should eith be one of the following two built-in profiles:
+This should either be one of the following two built-in profiles:
 
-  * dev-light
+  * dev
   * full
 
 Or it can be a list of one or more of the following packages, separated
 by spaces (values in brackets indicate prerequisites which will
-alos be installed automatically by the script):
+also be installed automatically by the script):
 
   * accelerator               [source-controller]
   * api-portal
-  * appliveview
+  * appliveview               [appliveview-conventions]
+  * appliveview-conventions   [appliveview]
   * buildservice
   * cartographer              [source-controller]
   * cnrs
@@ -172,6 +173,19 @@ EOT
 findOrPromptWithDefault SUPPLY_CHAIN "Supply chain" "basic"
 
 validateAndEnableSupplyChainComponent
+
+cat <<EOT
+
+>>> Packages to excludes (from full or dev profiles)
+
+This should be one of the following: basic, testing, scanning or none
+
+You can use the short package names shown above
+
+EOT
+
+findOrPrompt EXCLUDED_PACKAGES "Excluded packages"
+
 enablePreRequisites
 
 banner "The following packages will be installed:" ${!ENABLED[*]}
@@ -189,6 +203,7 @@ then
   AA_SERVICE_TYPE='NodePort'
   ALV_SERVICE_TYPE='ClusterIP'
   GUI_SERVICE_TYPE='ClusterIP'
+  STORE_SERVICE_TYPE='NodePort'
   # Can't use vcap.me for educates
   EDUCATES_DOMAIN="educates.$(hostIp).nip.io"
 else
@@ -197,14 +212,14 @@ else
   AA_SERVICE_TYPE='LoadBalancer'
   ALV_SERVICE_TYPE='LoadBalancer'
   GUI_SERVICE_TYPE='LoadBalancer'
+  STORE_SERVICE_TYPE='LoadBalancer'
   EDUCATES_DOMAIN=educates.$SYS_DOMAIN
 fi
 
 if $DO_INIT
 then
-  deployKappController
-  deploySecretgenController
-  if ! isEnabled full dev-light
+  deployKappAndSecretgenControllers
+  if ! isEnabled full dev
   then
     deployCertManager
     deployFluxCD
@@ -244,20 +259,6 @@ configureServiceBindings
 configureBuiltInProfiles
 
 configureImageSigningPolicy
-
-
-banner "Setting CNR (knative) domain to $DOMAIN ..."
-
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-data:
-  $APPS_DOMAIN: |
-kind: ConfigMap
-metadata:
-  name: config-domain
-  namespace: knative-serving
-EOF
-
 
 banner "Setting up secrets, accounts and roles for default developer namespace"
 
@@ -305,37 +306,60 @@ imagePullSecrets:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: kapp-permissions
-  annotations:
-    kapp.k14s.io/change-group: "role"
+  name: default
 rules:
-  - apiGroups:
-      - servicebinding.io
-    resources: ['servicebindings']
-    verbs: ['*']
-  - apiGroups:
-      - services.tanzu.vmware.com
-    resources: ['resourceclaims']
-    verbs: ['*']
-  - apiGroups:
-      - serving.knative.dev
-    resources: ['services']
-    verbs: ['*']
-  - apiGroups: [""]
-    resources: ['configmaps']
-    verbs: ['get', 'watch', 'list', 'create', 'update', 'patch', 'delete']
+- apiGroups: [source.toolkit.fluxcd.io]
+  resources: [gitrepositories]
+  verbs: ['*']
+- apiGroups: [source.apps.tanzu.vmware.com]
+  resources: [imagerepositories]
+  verbs: ['*']
+- apiGroups: [carto.run]
+  resources: [deliverables, runnables]
+  verbs: ['*']
+- apiGroups: [kpack.io]
+  resources: [images]
+  verbs: ['*']
+- apiGroups: [conventions.apps.tanzu.vmware.com]
+  resources: [podintents]
+  verbs: ['*']
+- apiGroups: [""]
+  resources: ['configmaps']
+  verbs: ['*']
+- apiGroups: [""]
+  resources: ['pods']
+  verbs: ['list']
+- apiGroups: [tekton.dev]
+  resources: [taskruns, pipelineruns]
+  verbs: ['*']
+- apiGroups: [tekton.dev]
+  resources: [pipelines]
+  verbs: ['list']
+- apiGroups: [kappctrl.k14s.io]
+  resources: [apps]
+  verbs: ['*']
+- apiGroups: [serving.knative.dev]
+  resources: ['services']
+  verbs: ['*']
+- apiGroups: [servicebinding.io]
+  resources: ['servicebindings']
+  verbs: ['*']
+- apiGroups: [services.apps.tanzu.vmware.com]
+  resources: ['resourceclaims']
+  verbs: ['*']
+- apiGroups: [scst-scan.apps.tanzu.vmware.com]
+  resources: ['imagescans', 'sourcescans']
+  verbs: ['*']
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: kapp-permissions
-  annotations:
-    kapp.k14s.io/change-rule: "upsert after upserting role"
+  name: default
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: kapp-permissions
+  name: default
 subjects:
   - kind: ServiceAccount
     name: default

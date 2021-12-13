@@ -113,6 +113,65 @@ function unbundled() {
   [[ $INSTALL_PROFILE == 'unbundled' ]]
 }
 
+function deployKappAndSecretgenControllers {
+  checkForTCETKG
+
+  banner "Downloading kapp + secretgen configuration bundle"
+
+  export IMGPKG_USERNAME="$TN_USERNAME"
+  export IMGPKG_PASSWORD="$TN_PASSWORD"
+
+  local tag=$(imgpkg tag list -i registry.tanzu.vmware.com/tanzu-cluster-essentials/cluster-essentials-bundle --json | \
+    jq -r '.Tables[0].Rows[].name' | \
+    sed -ne '/image-locations/{ s/\.image-locations.*$//; s/-/:/; p }' | tail -n 1)
+  local bundle="registry.tanzu.vmware.com/tanzu-cluster-essentials/cluster-essentials-bundle@${tag}"
+
+  rm -rf ./bundle
+  imgpkg pull -b $bundle -o ./bundle/
+
+  export YTT_registry__server=registry.tanzu.vmware.com
+  export YTT_registry__username="$TN_USERNAME"
+  export YTT_registry__password="$TN_PASSWORD"
+
+  message "Creating namespace $ns_name"
+
+  local ns_name=tanzu-cluster-essentials
+  (kubectl get ns $ns_name 2> /dev/null) || \
+    kubectl create ns $ns_name
+
+  banner "Deploying kapp-controller"
+
+  ytt -f ./bundle/kapp-controller/config/ -f ./bundle/registry-creds/ --data-values-env YTT --data-value-yaml kappController.deployment.concurrency=10 \
+	  | kbld -f- -f ./bundle/.imgpkg/images.yml \
+	  | kapp deploy -a kapp-controller -n $ns_name -f- --yes
+
+  kubectl get deployment kapp-controller -n kapp-controller -o yaml | grep kapp-controller.carvel.dev/version:
+
+  banner "Deploying secretgen-controller"
+  ytt -f ./bundle/secretgen-controller/config/ -f ./bundle/registry-creds/ --data-values-env YTT \
+	  | kbld -f- -f ./bundle/.imgpkg/images.yml \
+	  | kapp deploy -a secretgen-controller -n $ns_name -f- --yes
+
+  kubectl get deployment secretgen-controller -n secretgen-controller -o yaml | grep secretgen-controller.carvel.dev/version:
+}
+
+function checkForTCETKG {
+  if kubectl get deployment kapp-controller -n tkg-system 2> /dev/null
+  then
+    banner "You appear to be running on a TCE or TKG cluster." \
+      "You must follow the instructions in the documentation to delete the current" \
+      "kapp-controller deployment before re-running this script." \
+      "" \
+      "The documentation for TCE is at:" \
+      "https://docs.vmware.com/en/Tanzu-Application-Platform/0.4/tap/GUID-install-tce.html" \
+      "" \
+      "The documentation for TKG is at:" \
+      "https://docs.vmware.com/en/Tanzu-Application-Platform/0.4/tap/GUID-install-tkg.html"
+
+      fatal "Cannot continue"
+  fi
+}
+
 function deployKappController() {
   banner "Deploying kapp-controller"
 
@@ -127,30 +186,16 @@ function deployKappController() {
       "kapp-controller deployment before re-running this script." \
       "" \
       "The documentation for TCE is at:" \
-      "https://docs-staging.vmware.com/en/VMware-Tanzu-Application-Platform/0.3/tap-0-3/GUID-install-tce.html" \
+      "https://docs.vmware.com/en/Tanzu-Application-Platform/0.4/tap/GUID-install-tce.html" \
       "" \
       "The documentation for TKG is at:" \
-      "https://docs-staging.vmware.com/en/VMware-Tanzu-Application-Platform/0.3/tap-0-3/GUID-install-tkg.html"
+      "https://docs.vmware.com/en/Tanzu-Application-Platform/0.4/tap/GUID-install-tkg.html"
 
       fatal "Cannot continue"
   fi
 
   kapp deploy -a kc -f https://github.com/vmware-tanzu/carvel-kapp-controller/releases/latest/download/release.yml -y
   kubectl get deployment kapp-controller -n kapp-controller  -o yaml | grep kapp-controller.carvel.dev/version:
-}
-
-function deploySecretgenController() {
-  banner "Deploying secretgen-controller"
-
-  kapp deploy -a sg -f https://github.com/vmware-tanzu/carvel-secretgen-controller/releases/latest/download/release.yml -y
-  kubectl get deployment secretgen-controller -n secretgen-controller -o yaml | grep secretgen-controller.carvel.dev/version:
-}
-
-function deployCertManager() {
-  banner "Deploying cert-manager"
-
-  kapp deploy -a cert-manager -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml -y
-  kubectl get deployment cert-manager -n cert-manager -o yaml | grep -m 1 'app.kubernetes.io/version: v'
 }
 
 function deployFluxCD() {
@@ -245,7 +290,7 @@ function validateAndEnableInstallationOptions {
     cnrs) ;;
     conventions-controller) ;;
     convention-controller) ;; # Alias for above
-    dev-light) ;;
+    dev) ;;
     developer-conventions) ;;
     full) ;;
     image-policy-webhook) ;;
@@ -273,9 +318,9 @@ function validateAndEnableInstallationOptions {
     ENABLED[$value]=true
   done
 
-  if isEnabled full dev-light && [[ ${#ENABLED[*]} != 1 ]]
+  if isEnabled full dev && [[ ${#ENABLED[*]} != 1 ]]
   then
-    fatal "'full' and 'dev-light' must not be mixed with any other installation profiles"
+    fatal "'full' and 'dev' must not be mixed with any other installation profiles"
   fi
   return 0
 }
@@ -285,12 +330,12 @@ function validateAndEnableSupplyChainComponent {
 
   case $SUPPLY_CHAIN in
   basic|testing|scanning)
-    isEnabled full dev-light && return 0
+    isEnabled full dev && return 0
     ;;
   none)
-    if isEnabled full dev-light
+    if isEnabled full dev
     then
-      message "Supply chain type cannot be 'none' for full or dev-light profiles -- using 'basic'"
+      message "Supply chain type cannot be 'none' for full or dev profiles -- using 'basic'"
       SUPPLY_CHAIN='basic'
       return 0
     fi
@@ -317,6 +362,7 @@ function validateAndEnableSupplyChainComponent {
 
 declare -A PRE_REQ
 PRE_REQ[accelerator]="source-controller"
+PRE_REQ[appliveview]="conventions-controller"
 PRE_REQ[cartographer]="source-controller"
 PRE_REQ[developer-conventions]="conventions-controller"
 PRE_REQ[learningcenter-workshops]="learningcenter"
@@ -349,6 +395,7 @@ function configureCloudNativeRuntimes {
 
   cat > cnrs-values.yaml <<EOF
 ---
+domain_name: ${APPS_DOMAIN}
 provider: ${CNR_PROVIDER}
 local_dns:
   enable: "${CNR_LOCAL_DNS}"
@@ -517,8 +564,11 @@ EOF
   if isEnabled appliveview
   then
     installLatest appliveview \
-      appliveview.tanzu.vmware.com \
+      run.appliveview.tanzu.vmware.com \
       app-live-view-values.yaml
+
+      installLatest appliveview \
+      build.appliveview.tanzu.vmware.com
   fi
 }
 
@@ -600,7 +650,7 @@ function configureServiceBindings {
 function configureScstStore {
   cat > scst-store-values.yaml <<EOF
 ---
-db_password: "PASSWORD-0123"
+app_service_type: ${STORE_SERVICE_TYPE} # (optional) Defaults to LoadBalancer. Change to NodePort for distributions that don't support LoadBalancer
 EOF
 
   if isEnabled scst-store
@@ -631,7 +681,7 @@ EOF
 }
 
 function configureImageSigningPolicy {
-  if isEnabled full dev-light signing image-policy-webhook
+  if isEnabled full signing image-policy-webhook
   then
     banner "Creating image-policy-registry-credentials service account and image pull secret"
 
@@ -696,66 +746,29 @@ EOF
 }
 
 function configureScanning {
-  createScanControllerValues
+
+  cat > scst-grype-values.yaml <<EOF
+namespace: "default"
+targetImagePullSecret: "registry-credentials"
+EOF
 
   if isEnabled scanning grype
   then
     banner "Installing Supply Chain Security Tools - Scan"
 
     installLatest scan-controller \
-      scanning.apps.tanzu.vmware.com \
+      scst-scan.apps.tanzu.vmware.com \
       scst-scan-controller-values.yaml
 
     banner "Installing Supply Chain Security Tools - Scan (Grype Scanner)"
 
-    installLatest grype-scanner grype.scanning.apps.tanzu.vmware.com
+    installLatest grype-scanner \
+      scst-grype.apps.tanzu.vmware.com \
+      scst-grype-values.yaml
+
   fi
 }
 
-function createScanControllerValues {
-  if isEnabled scst-store
-  then
-    (kubectl create namespace scan-link-system 2> /dev/null) || true
-
-    kubectl delete secret metadata-store-ca -n scan-link-system 2> /dev/null || true
-    waitForRemoval kubectl get secret metadata-store-ca -n scan-link-system -o json
-
-    kubectl create secret generic metadata-store-ca \
-      -n scan-link-system \
-      --from-file=ca.crt=<(kubectl get secret app-tls-cert -n metadata-store -o json | jq -r '.data."ca.crt"' | base64 -d)
-    
-    cat <<EOF | kubectl apply -f -
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-name: metadata-store-read-write
-namespace: metadata-store
-rules:
-- resources: ["all"]
-verbs: ["get", "create", "update"]
-apiGroups: [ "metadata-store/v1" ]
-EOF
-
-    local store_url=$(
-      kubectl -n metadata-store get service -o name | \
-        grep app | \
-        xargs kubectl -n metadata-store get \
-          -o jsonpath='{.spec.ports[].name}{"://"}{.metadata.name}{"."}{.metadata.namespace}{".svc.cluster.local:"}{.spec.ports[].port}'
-    )
-
-    cat > scst-scan-controller-values.yaml <<EOF
----
-metadataStoreUrl: $store_url
-metadataStoreCaSecret: metadata-store-ca
-metadataStoreClusterRole: metadata-store-read-write
-EOF
-  else
-    cat > scst-scan-controller-values.yaml << EOF
----
-EOF
-  fi
-}
 
 function configureApiPortal {
   if isEnabled api-portal
@@ -778,18 +791,18 @@ function configureServicesToolkit {
 function configureTekton {
   if isEnabled tekton
   then
-    kapp deploy --yes -a tekton \
-      -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.28.0/release.yaml
+    installLatest tekton tekton.tanzu.vmware.com
   fi
 }
 
 function configureBuiltInProfiles {
   requireValue INSTALL_PROFILE SUPPLY_CHAIN ALV_SERVICE_TYPE
 
-  if isEnabled full dev-light
+  if isEnabled full dev
   then
     cat > tap-values.yaml <<EOF
 profile: $INSTALL_PROFILE
+ceip_policy_disclosed: true # Installation fails if this is set to 'false'
 
 cnrs:
 $(embedYaml cnrs-values.yaml)
@@ -841,8 +854,17 @@ $(embedYaml app-accelerator-values.yaml)
 
 learningcenter:
 $(embedYaml learning-center-values.yaml)
+
+metadata_store:
+$(embedYaml scst-store-values.yaml)
+
+grype:
+$(embedYaml scst-grype-values.yaml)
+
 EOF
     fi
+
+    addExclusions
 
     banner "Installing core TAP profile: $INSTALL_PROFILE"
 
@@ -850,6 +872,49 @@ EOF
   fi
 }
 
+declare -A FULL_PACKAGE
+FULL_PACKAGE[accelerator]="accelerator.apps.tanzu.vmware.com"
+FULL_PACKAGE[api-portal]="api-portal.tanzu.vmware.com"
+FULL_PACKAGE[appliveview]="run.appliveview.tanzu.vmware.com build.appliveview.tanzu.vmware.com"
+FULL_PACKAGE[buildservice]="buildservice.tanzu.vmware.com"
+FULL_PACKAGE[tbs]="buildservice.tanzu.vmware.com"
+FULL_PACKAGE[cartographer]="cartographer.tanzu.vmware.com"
+FULL_PACKAGE[cnrs]="cnrs.tanzu.vmware.com"
+FULL_PACKAGE[conventions-controller]="controller.conventions.apps.tanzu.vmware.com"
+FULL_PACKAGE[convention-controller]="controller.conventions.apps.tanzu.vmware.com"
+FULL_PACKAGE[developer-conventions]="developer-conventions.tanzu.vmware.com"
+FULL_PACKAGE[grype]="scst-grype.apps.tanzu.vmware.com"
+FULL_PACKAGE[image-policy-webhook]="image-policy-webhook.signing.run.tanzu.vmware.com"
+FULL_PACKAGE[learningcenter]="learningcenter.tanzu.vmware.com workshops.learningcenter.tanzu.vmware.com"
+FULL_PACKAGE[ootb-supply-chain-basic]="ootb-supply-chain-basic.tanzu.vmware.com"
+FULL_PACKAGE[ootb-supply-chain-testing]="ootb-supply-chain-testing.tanzu.vmware.com"
+FULL_PACKAGE[ootb-supply-chain-testing-scanning]="ootb-supply-chain-testing-scanning.tanzu.vmware.com"
+FULL_PACKAGE[ootb-templates]="ootb-templates.tanzu.vmware.com"
+FULL_PACKAGE[scst-grype]="scst-grype.tanzu.vmware.com"
+FULL_PACKAGE[scst-scan]="scst-scan.tanzu.vmware.com"
+FULL_PACKAGE[scst-store]="scst-store.tanzu.vmware.com"
+FULL_PACKAGE[signing]="image-policy-webhook.signing.run.tanzu.vmware.com"
+FULL_PACKAGE[source-controller]="controller.source.apps.tanzu.vmware.com"
+FULL_PACKAGE[spring-boot-conventions]="spring-boot-conventions.tanzu.vmware.com"
+FULL_PACKAGE[tap-gui]="tap-gui.tanzu.vmware.com"
+FULL_PACKAGE[tekton]="tekton.tanzu.vmwre.com"
+FULL_PACKAGE[learningcenter-workshops]="workshops.learningcenter.tanzu.vmware.com"
+
+function addExclusions {
+  local package
+  local fullPackage
+  if [[ $EXCLUDED_PACKAGES != "" ]]
+  then
+    echo "excluded_packages:" >> tap-values.yaml
+    for package in $EXCLUDED_PACKAGES
+    do
+      for fullPackage in ${FULL_PACKAGE[$package]:-$package}
+      do
+        echo "- $fullPackage" >> tap-values.yaml
+      done
+    done
+  fi
+}
 function hostIp {
   # This works on both macOS and Linux
   ifconfig -a | awk '/^(en|wl)/,/(inet |status|TX error)/ { if ($1 == "inet") { print $2; exit; } }'
