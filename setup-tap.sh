@@ -6,7 +6,7 @@ TAP_VERSION=0.4.0
 
 set -e
 
-source $(dirname $0)/functions.sh
+source "$(dirname $0)/functions.sh"
 
 #####
 ##### Main code starts here
@@ -123,7 +123,7 @@ also be installed automatically by the script):
   * image-policy-webhook
   * grype                     [scanning]
   * learningcenter
-  * learningcenter-workshops  [learning-center
+  * learningcenter-workshops  [learningcenter]
   * ootb-supply-chain-basic   [ootb-templates]
   * ootb-supply-chain-testing [tekton, ootb-templates]
   * ootb-supply-chain-testing-scanning
@@ -176,7 +176,7 @@ validateAndEnableSupplyChainComponent
 
 cat <<EOT
 
->>> Packages to excludes (from full or dev profiles)
+>>> Packages to exclude (from full or dev profiles)
 
 This should be one of the following: basic, testing, scanning or none
 
@@ -192,9 +192,12 @@ banner "The following packages will be installed:" ${!ENABLED[*]}
 
 ### Set up (global, sigh ...) data used elsewhere
 
-SYS_DOMAIN="sys.${DOMAIN}"
-APPS_DOMAIN="apps.${DOMAIN}"
-GUI_DOMAIN="gui.${SYS_DOMAIN}"
+if isEnabled tap-gui && [[ -z "$GUI_DOMAIN" ]]
+then
+  findOrPromptWithDefault SYS_DOMAIN "System domain" "sys.${DOMAIN}"
+fi
+findOrPromptWithDefault APPS_DOMAIN "Applications domain" "apps.${DOMAIN}"
+findOrPromptWithDefault GUI_DOMAIN "UI Domain" "gui.${SYS_DOMAIN}"
 
 if isLocal
 then
@@ -206,6 +209,8 @@ then
   STORE_SERVICE_TYPE='NodePort'
   # Can't use vcap.me for educates
   EDUCATES_DOMAIN="educates.$(hostIp).nip.io"
+  CONTOUR_SERVICE_TYPE='ClusterIP'
+
 else
   CNR_PROVIDER=""
   CNR_LOCAL_DNS="false"
@@ -213,7 +218,8 @@ else
   ALV_SERVICE_TYPE='LoadBalancer'
   GUI_SERVICE_TYPE='LoadBalancer'
   STORE_SERVICE_TYPE='LoadBalancer'
-  EDUCATES_DOMAIN=educates.$SYS_DOMAIN
+  CONTOUR_SERVICE_TYPE='LoadBalancer'
+  findOrPromptWithDefault EDUCATES_DOMAIN "Learning Center domain" "learn.$DOMAIN"
 fi
 
 if $DO_INIT
@@ -235,6 +241,7 @@ tanzu package available list --namespace tap-install
 # and install the appropriate packages, otherwise they will
 # just generate the config files
 
+configureContour
 configureCloudNativeRuntimes
 configureConventionsController
 configureSourceController
@@ -406,24 +413,48 @@ then
 EOF
 else
 
-  ENVOY_IP=$(kubectl get svc envoy -n contour-external -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
-  ACCELERATOR_IP=$(kubectl get svc acc-ui-server -n accelerator-system -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
-  LIVE_VIEW_IP=$(kubectl get svc application-live-view-5112 -n app-live-view -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
-  GUI_IP=$(kubectl get svc server -n tap-gui -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
+  export ENVOY_IP=$(kubectl get svc envoy -n tanzu-system-ingress -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }')
+  export GUI_IP=$(kubectl get svc server -n tap-gui -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }')
+  export EDUCATES_IP=$(kubectl get svc learningcenter-portal -n learning-center-guided-ui -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }' || true)
   cat <<EOF
 
 ###
 ### Applications deployed in TAP will run at ${ENVOY_IP}
 ### Please configure DNS for *.${APPS_DOMAIN} to point to that address
 ###
+EOF
+fi
+
+if [[ -n "$GUI_IP" ]]
+then
+  cat <<EOF
 ### The TAP GUI will run at http://${GUI_DOMAIN}:7000
 ### Please configure DNS for $GUI_DOMAIN to map to ${GUI_IP}
 ###
+EOF
+fi
 
+if [[ -n "$ACCELERATOR_IP" ]]
+then
+  cat <<EOF
 ### App Accelerator is running at http://${ACCELERATOR_IP}
+###
+EOF
+fi
 
+if [[ -n "$LIVE_VIEW_IP" ]]
+then
+  cat <<EOF
 ### App Live View is running at http://${LIVE_VIEW_IP}
+###
+EOF
+fi
 
+if [[ -n "$EDUCATES_IP" ]]
+then
+  cat <<EOF
+### Learning Center is running at http://${EDUCATES_IP}
+###
 EOF
 fi
 
