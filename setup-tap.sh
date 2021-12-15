@@ -188,16 +188,14 @@ findOrPrompt EXCLUDED_PACKAGES "Excluded packages"
 
 enablePreRequisites
 
-banner "The following packages will be installed:" ${!ENABLED[*]}
-
-### Set up (global, sigh ...) data used elsewhere
-
-if isEnabled tap-gui && [[ -z "$GUI_DOMAIN" ]]
+if isEnabled full dev tap-gui && [[ -z "$GUI_DOMAIN" ]]
 then
   findOrPromptWithDefault SYS_DOMAIN "System domain" "sys.${DOMAIN}"
 fi
 findOrPromptWithDefault APPS_DOMAIN "Applications domain" "apps.${DOMAIN}"
 findOrPromptWithDefault GUI_DOMAIN "UI Domain" "gui.${SYS_DOMAIN}"
+
+### Set up (global, sigh ...) data used elsewhere
 
 if isLocal
 then
@@ -221,6 +219,8 @@ else
   CONTOUR_SERVICE_TYPE='LoadBalancer'
   findOrPromptWithDefault EDUCATES_DOMAIN "Learning Center domain" "learn.$DOMAIN"
 fi
+
+banner "The following packages will be installed:" ${!ENABLED[*]}
 
 if $DO_INIT
 then
