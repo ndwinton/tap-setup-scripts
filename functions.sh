@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 
 function banner {
@@ -393,14 +393,32 @@ function enablePreRequisites {
 function configureCloudNativeRuntimes {
   requireValue CNR_LOCAL_DNS APPS_DOMAIN
 
-  cat > cnrs-values.yaml <<EOF
+  if [[ "${CNR_PROVIDER}" == "local" ]]
+  then
+    cat > cnrs-values.yaml <<EOF
 ---
-domain_name: ${APPS_DOMAIN}
-provider: ${CNR_PROVIDER}
+domain_name: "${APPS_DOMAIN}"
+provider: "${CNR_PROVIDER}"
 local_dns:
   enable: "${CNR_LOCAL_DNS}"
   domain: "${APPS_DOMAIN}"
+ingress:
+  reuse_crds: true
+  external:
+    namespace: tanzu-system-ingress
 EOF
+  else
+    cat > cnrs-values.yaml <<EOF
+---
+domain_name: "${APPS_DOMAIN}"
+ingress:
+  reuse_crds: true
+  external:
+    namespace: tanzu-system-ingress
+  internal:
+    namespace: tanzu-system-ingress
+EOF
+  fi
 
   if isEnabled cnrs
   then
@@ -567,7 +585,7 @@ EOF
       run.appliveview.tanzu.vmware.com \
       app-live-view-values.yaml
 
-      installLatest appliveview \
+    installLatest appliveview \
       build.appliveview.tanzu.vmware.com
   fi
 }
@@ -579,7 +597,7 @@ function configureTapGui {
 ---
 namespace: tap-gui
 service_type: ${GUI_SERVICE_TYPE}
-app-config:
+app_config:
   app:
     baseUrl: http://${GUI_DOMAIN}:7000
   #
@@ -625,7 +643,7 @@ EOF
   if isEnabled learningcenter
   then
     banner "Installing Learning Center"
-    installLatest learning-center \
+    installLatest learningcenter \
       learningcenter.tanzu.vmware.com \
       learning-center-values.yaml
   fi
@@ -795,6 +813,29 @@ function configureTekton {
   fi
 }
 
+function configureContour {
+
+  if [[ "${INFRASTRUCTURE_PROVIDER}" == "aws" ]]
+  then
+    cat > contour-values.yaml <<EOF
+infrastructure_provider: aws
+envoy:
+  service:
+    aws:
+      LBType: classic # classic or nlb (network load balancer)
+EOF
+  else
+    rm -f contour-values.yaml && touch contour-values.yaml
+  fi
+
+  if isEnabled contour
+  then
+    banner "Installing Contour"
+
+    installLatest contour contour.tanzu.vmware.com countour-values.yaml
+  fi
+}
+
 function configureBuiltInProfiles {
   requireValue INSTALL_PROFILE SUPPLY_CHAIN ALV_SERVICE_TYPE
 
@@ -806,6 +847,9 @@ ceip_policy_disclosed: true # Installation fails if this is set to 'false'
 
 cnrs:
 $(embedYaml cnrs-values.yaml)
+
+contour:
+$(embedYaml contour-values.yaml)
 
 buildservice:
 $(embedYaml tbs-values.yaml)
@@ -880,6 +924,7 @@ FULL_PACKAGE[buildservice]="buildservice.tanzu.vmware.com"
 FULL_PACKAGE[tbs]="buildservice.tanzu.vmware.com"
 FULL_PACKAGE[cartographer]="cartographer.tanzu.vmware.com"
 FULL_PACKAGE[cnrs]="cnrs.tanzu.vmware.com"
+FULL_PACKAGE[contour]="contour.tanzu.vmware.com"
 FULL_PACKAGE[conventions-controller]="controller.conventions.apps.tanzu.vmware.com"
 FULL_PACKAGE[convention-controller]="controller.conventions.apps.tanzu.vmware.com"
 FULL_PACKAGE[developer-conventions]="developer-conventions.tanzu.vmware.com"
@@ -897,13 +942,13 @@ FULL_PACKAGE[signing]="image-policy-webhook.signing.run.tanzu.vmware.com"
 FULL_PACKAGE[source-controller]="controller.source.apps.tanzu.vmware.com"
 FULL_PACKAGE[spring-boot-conventions]="spring-boot-conventions.tanzu.vmware.com"
 FULL_PACKAGE[tap-gui]="tap-gui.tanzu.vmware.com"
-FULL_PACKAGE[tekton]="tekton.tanzu.vmwre.com"
+FULL_PACKAGE[tekton]="tekton.tanzu.vmware.com"
 FULL_PACKAGE[learningcenter-workshops]="workshops.learningcenter.tanzu.vmware.com"
 
 function addExclusions {
   local package
   local fullPackage
-  if [[ $EXCLUDED_PACKAGES != "" ]]
+  if [[ "$EXCLUDED_PACKAGES" != "" ]]
   then
     echo "excluded_packages:" >> tap-values.yaml
     for package in $EXCLUDED_PACKAGES

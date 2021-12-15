@@ -3,7 +3,10 @@
 These are scripts I've used to set up beta versions of
 Tanzu Application Platform (TAP) on a VM using
 [Kind](https://kind.sigs.k8s.io/) and on GKE.
-It may also work (but is less tested) on TCE, TKG and EKS.
+
+It has also been tested on AWS EKS.  Instructions are in [README_AWS_EKS.md](README_AWS_EKS.md).
+
+It may also work (but is less tested) on TCE and TKG.
 
 It is known to work with DockerHub, Harbor and GCR for the container
 registry.
@@ -54,7 +57,7 @@ the registry.
 
 The latest beta build of TAP supports the concept of installation
 profiles, and the script reflects this too.
-You can specify that you want to use the 'full' or 'dev-light' profiles
+You can specify that you want to use the 'full' or 'dev' profiles
 supported by TAP, when prompted, or set the `INSTALL_PROFILE`
 environment variable.
 
