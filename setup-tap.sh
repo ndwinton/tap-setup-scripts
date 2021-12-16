@@ -418,8 +418,8 @@ else
     GUI_IP=$(kubectl get svc server -n tap-gui -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }')
     EDUCATES_IP=$(kubectl get svc learningcenter-portal -n learning-center-guided-ui -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }' || true)
   else
-    ENVOY_IP=$(kubectl get svc envoy -n contour-external -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
-    ACCELERATOR_IP=$(kubectl get svc acc-ui-server -n accelerator-system -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
+    ENVOY_IP=$(kubectl get svc envoy -n tanzu-system-ingress -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
+    ACCELERATOR_IP=$(kubectl get svc acc-server -n accelerator-system -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
     LIVE_VIEW_IP=$(kubectl get svc application-live-view-5112 -n app-live-view -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
     GUI_IP=$(kubectl get svc server -n tap-gui -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
   fi
