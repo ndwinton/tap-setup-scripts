@@ -813,20 +813,59 @@ function configureTekton {
   fi
 }
 
+function infrastructureProvider {
+  if [[ -n "$INFRASTRUCTURE_PROVIDER" ]]
+  then
+    echo $INFRASTRUCTURE_PROVIDER
+    return 0
+  fi
+
+  case "$(kubectl version -o json 2> /dev/null | jq -r .serverVersion.gitVersion)" in
+  *-gke.*)
+    echo "google"
+    ;;
+  *-eks-*)
+    echo "aws"
+    ;;
+  *)
+    if kubectl get ds -n kube-system -o json | jq -r '.items[].metadata.name' | grep -q kindnet
+    then
+      echo "kind"
+    else
+      echo "unknown"
+    fi
+    ;;
+  esac
+}
+
 function configureContour {
 
-  if [[ "${INFRASTRUCTURE_PROVIDER}" == "aws" ]]
-  then
-    cat > contour-values.yaml <<EOF
+  case $(infrastructureProvider) in
+  aws)
+      cat > contour-values.yaml <<EOF
 infrastructure_provider: aws
 envoy:
   service:
     aws:
       LBType: classic # classic or nlb (network load balancer)
 EOF
-  else
-    rm -f contour-values.yaml && touch contour-values.yaml
-  fi
+      ;;
+
+  google)
+    cat > contour-values.yaml <<EOF
+envoy:
+  service:
+    type: LoadBalancer
+EOF
+    ;;
+  *)
+    cat > contour-values.yaml <<EOF
+envoy:
+  service:
+    type: NodePort
+EOF
+    ;;
+  esac
 
   if isEnabled contour
   then

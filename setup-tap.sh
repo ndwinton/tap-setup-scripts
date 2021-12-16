@@ -396,7 +396,7 @@ then
 #
 # To set up port forwarding for Envoy (http://*.${APPS_DOMAIN}:8080) run:"
 
-  kubectl port-forward -n tanzu-system-ingress ssvc/envoy 8080:80 &
+  kubectl port-forward -n tanzu-system-ingress svc/envoy 8080:80 &
 
 # To set up port forwarding for App Accelerator (http://localhost:8877) run:"
 
