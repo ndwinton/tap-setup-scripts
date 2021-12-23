@@ -927,6 +927,9 @@ appliveview:
   connector_namespaces: [default]
   service_type: "${ALV_SERVICE_TYPE}"
 
+accelerator:
+$(embedYaml app-accelerator-values.yaml)
+
 image_policy_webhook:
 $(embedYaml scst-sign-values.yaml)
 
@@ -962,9 +965,6 @@ EOF
     if isEnabled full
     then
       cat >> tap-values.yaml <<EOF
-
-accelerator:
-$(embedYaml app-accelerator-values.yaml)
 
 learningcenter:
 $(embedYaml learning-center-values.yaml)

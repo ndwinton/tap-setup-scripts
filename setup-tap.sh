@@ -179,9 +179,12 @@ then
 
 >>> Extra supply chain
 
-The combinations of basic+testing or basic+scanning supply chains
-can be installed together. Do you want to install an extra supply
-chain.
+The official documentation says that only one supply chain should
+be installed at a time. However, while unsupported, it is possible
+to install the combinations of basic+testing or basic+scanning
+supply chains together for experimentation.
+
+Do you want to install an extra supply chain?
 
 This should be one of the following: basic, testing, scanning or none
 
