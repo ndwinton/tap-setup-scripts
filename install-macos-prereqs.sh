@@ -85,6 +85,9 @@ log "Installing tanzu CLI"
 read -p 'Tanzu Network UAA Refresh Token: ' PIVNET_TOKEN
 pivnet login --api-token="$PIVNET_TOKEN"
 
+ESSENTIALS_VERSION=$(pivnet releases -p tanzu-cluster-essentials --format=json | \
+  jq -r 'sort_by(.updated_at)[-1].version')
+  
 log "Latest Tanzu Cluster Essentials release found is $ESSENTIALS_VERSION"
 
 ESSENTIALS_FILE_NAME=tanzu-cluster-essentials-darwin-amd64-$ESSENTIALS_VERSION.tgz
