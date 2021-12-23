@@ -1,28 +1,67 @@
-# AWS values, OK to omit if you are not installing on AWS
-export AWS_REGION=us-east-2 # Pick a region.
-export EKS_CLUSTER_NAME=my-aws-eks-cluster # Human-friendly name of EKS cluster, available in AWS Console.
+### TanzuNet credentials
+export TN_USERNAME=user@example.com
+export TN_PASSWORD='password with a special character that requires single quotes!'
 
-# external image repo (e.g. DockerHub) values
-export REGISTRY=user/build-service # DockerHub requires the format username/registry.  Other registries are different.
+### External image repo (e.g. DockerHub) details
+# DockerHub requires the format username/registry. Other registries,
+# such as Harbor are different and likely to be of the form
+# my.repo.host/my-project/my-registry
+export REGISTRY=user/build-service 
 export REG_USERNAME=username
 export REG_PASSWORD=password
+### For GCR use something like this:
+#  export REGISTRY=gcr.io/my-project/tap
+#  export REG_USERNAME=_json_key  # Exactly this value
+#  export REG_PASSWORD="$(cat gcr-access-key.json)" # A service account key
 
-# TAP values
-export INFRASTRUCTURE_PROVIDER= # Leave blank or unassigned for local/kind install. Possible values: aws
-export INSTALL_PROFILE=full # full or dev-light
-export EXCLUDED_PACKAGES=basic # List of packages to not install. basic, testing, scanning or none.
-export SUPPLY_CHAIN=testing # basic, testing, or scanning
+### Installation configuration
 
-export TN_USERNAME=user@example.com # Tanzu Network username
-export TN_PASSWORD='password with a special character that requires single quotes !'
+# INFRASTRUCTURE_PROVIDER - what kind of K8s infrastructure
+# The script will attempt to work this out, so you can leave it blank.
+# If there are problems, however, possible values are: aws, google, kind
+export INFRASTRUCTURE_PROVIDER= 
 
-# The DOMAIN must be a static URL which does not change with the underlying IP or LoadBalancer.
-# This means you cannot use clever DNS mapping sites such as `nip.io`
+# INSTALL_PROFILE
+# Either one of 'full' or 'dev' or a space-separated list of individual
+# (short-form) package names
+export INSTALL_PROFILE=full
+
+# EXCLUDED_PACKAGES
+# If using 'full' or 'dev' profiles, this is a space-separated
+# list of packages NOT to include (or 'none' if there are no
+# packages to exclude).
+export EXCLUDED_PACKAGES=none
+
+# SUPPLY_CHAIN and EXTRA_SUPPLY_CHAIN
+# The choice of primary supply chain. Valid values are: none, basic,
+# testing, or scanning.
+# It is also possible to install a second supply chain, although
+# this may not be a supported configuration.
+export SUPPLY_CHAIN=testing 
+export EXTRA_SUPPLY_CHAIN=none
+
+
+# The DOMAIN must be a static URL which does not change with the
+# underlying IP or LoadBalancer. This means you cannot use clever
+# DNS mapping sites such as 'nip.io' if these values will change.
+#
+# NOTE: Setting DOMAIN to 'vcap.me' (which resolves to 127.0.0.1)
+# indicates that this is a purely local installation.
 export DOMAIN=example.com
-export SYS_DOMAIN="sys-subdomain.$DOMAIN" # if the tap-gui package is selected for installation and GUI_DOMAIN is not set, then SYS_DOMAIN must be set in order to avoid the prompt in the setup-tap.sh script.
-export GUI_DOMAIN="ui-subdomain.$DOMAIN" # Only needed if the tap-gui package is selected for installation. NOTE: This is served on port 7000
-export APPS_DOMAIN="apps-subdomain.$DOMAIN"
-export EDUCATES_DOMAIN="learning-center-subdomain.$DOMAIN" # Only needed if learningcenter package is selected for installation
+# GUI_DOMAIN is only needed if the tap-gui package is selected for
+# installation, either directly or as part of the full or dev profiles.
+# NOTE: This is served on port 7000
+export GUI_DOMAIN="gui.$DOMAIN"
+# APPS_DOMAIN is the sub-domain under which all apps will be deployed
+export APPS_DOMAIN="apps.$DOMAIN"
+# EDUCATES_DOMAIN is only needed if learningcenter package is selected
+# for installation
+export EDUCATES_DOMAIN="learning-center.$DOMAIN" 
 
-export GITHUB_ACCESS_TOKEN=your-github-access-token
+# GUI_CATALOG_URL
+# The GUI needs a (blank) catalog to present.
 export GUI_CATALOG_URL=https://github.com/your-registry/tap-blank-catalog/blob/main/catalog-info.yaml
+
+### AWS values, OK to omit if you are not installing on AWS
+export AWS_REGION=us-east-2 # Pick a region.
+export EKS_CLUSTER_NAME=my-aws-eks-cluster # Human-friendly name of EKS cluster, available in AWS Console.
