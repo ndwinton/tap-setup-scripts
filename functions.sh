@@ -328,6 +328,8 @@ function validateAndEnableInstallationOptions {
 function validateAndEnableSupplyChainComponent {
   requireValue SUPPLY_CHAIN
 
+  validateAndEnableExtraSupplyChain
+
   case $SUPPLY_CHAIN in
   basic|testing|scanning)
     isEnabled full dev && return 0
@@ -358,6 +360,27 @@ function validateAndEnableSupplyChainComponent {
   esac
 
   return 0
+}
+
+function validateAndEnableExtraSupplyChain {
+    requireValue SUPPLY_CHAIN EXTRA_SUPPLY_CHAIN
+
+    case $EXTRA_SUPPLY_CHAIN in
+  basic)
+    ENABLED[ootb-supply-chain-basic]=true
+    ;;
+  testing)
+    [[ "$SUPPLY_CHAIN" == "scanning" || "$SUPPLY_CHAIN" == "testing_scanning" ]] && \
+      fatal "Cannot enable both 'testing' and 'scanning' supply chains"
+    ENABLED[ootb-supply-chain-testing]=true
+    ;;
+  scanning|testing_scanning)
+    [[ "$SUPPLY_CHAIN" == "testing" ]] && \
+      fatal "Cannot enable both 'testing' and 'scanning' supply chains"
+    ENABLED[ootb-supply-chain-testing-scanning]=true
+    ;;
+  esac
+
 }
 
 declare -A PRE_REQ
@@ -907,13 +930,14 @@ EOF
 
     case $SUPPLY_CHAIN in
     basic)
-      SC_NAME=ootb_supply_chain_basic
+      SC_NAME="ootb_supply_chain_basic"
       ;;
     testing)
-      SC_NAME=ootb_supply_chain_testing
+      SC_NAME="ootb_supply_chain_testing"
       ;;
-    scanning)
-      SC_NAME=ootb_supply_chain_testing_scanning
+    scanning|testing_scanning)
+      SUPPLY_CHAIN=testing_scanning
+      SC_NAME="ootb_supply_chain_testing_scanning"
       ;;
     *)
       fatal "Invalid supply chain for profile install: $SUPPLY_CHAIN"
@@ -987,7 +1011,7 @@ FULL_PACKAGE[learningcenter-workshops]="workshops.learningcenter.tanzu.vmware.co
 function addExclusions {
   local package
   local fullPackage
-  if [[ "$EXCLUDED_PACKAGES" != "" ]]
+  if [[ "$EXCLUDED_PACKAGES" != "none" ]]
   then
     echo "excluded_packages:" >> tap-values.yaml
     for package in $EXCLUDED_PACKAGES

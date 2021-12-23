@@ -172,28 +172,44 @@ EOT
 
 findOrPromptWithDefault SUPPLY_CHAIN "Supply chain" "basic"
 
+if [[ "$SUPPLY_CHAIN" != "none" ]]
+then
+
+  cat <<EOT
+
+>>> Extra supply chain
+
+The combinations of basic+testing or basic+scanning supply chains
+can be installed together. Do you want to install an extra supply
+chain.
+
+This should be one of the following: basic, testing, scanning or none
+
+EOT
+  findOrPromptWithDefault EXTRA_SUPPLY_CHAIN "Extra supply chain" "none"
+else
+  EXTRA_SUPPLY_CHAIN="none"
+fi
+
 validateAndEnableSupplyChainComponent
 
 cat <<EOT
 
 >>> Packages to exclude (from full or dev profiles)
 
-This should be one of the following: basic, testing, scanning or none
-
 You can use the short package names shown above
 
 EOT
 
-findOrPrompt EXCLUDED_PACKAGES "Excluded packages"
+findOrPromptWithDefault EXCLUDED_PACKAGES "Excluded packages" "none"
 
 enablePreRequisites
 
-if isEnabled full dev tap-gui && [[ -z "$GUI_DOMAIN" ]]
+if isEnabled full dev tap-gui
 then
-  findOrPromptWithDefault SYS_DOMAIN "System domain" "sys.${DOMAIN}"
+  findOrPromptWithDefault GUI_DOMAIN "UI Domain" "gui.${DOMAIN}"
 fi
 findOrPromptWithDefault APPS_DOMAIN "Applications domain" "apps.${DOMAIN}"
-findOrPromptWithDefault GUI_DOMAIN "UI Domain" "gui.${SYS_DOMAIN}"
 
 ### Set up (global, sigh ...) data used elsewhere
 
