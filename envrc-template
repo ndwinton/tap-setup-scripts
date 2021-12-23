@@ -16,9 +16,13 @@ export REG_PASSWORD=password
 
 ### Installation configuration
 
-# INFRASTRUCTURE_PROVIDER - what kind of K8s infrastructure
+# INFRASTRUCTURE_PROVIDER - What kind of K8s infrastructure is used?
 # The script will attempt to work this out, so you can leave it blank.
 # If there are problems, however, possible values are: aws, google, kind
+# and minikube.
+# This primarily affects how the Contour ingress controller is exposed.
+# For aws and google a LoadBalancer is used, otherwise it defaults to
+# NodePort. In the case of AWS, it uses a "classic" load balancer.
 export INFRASTRUCTURE_PROVIDER= 
 
 # INSTALL_PROFILE

@@ -123,7 +123,11 @@ function deployKappAndSecretgenControllers {
 
   local tag=$(imgpkg tag list -i registry.tanzu.vmware.com/tanzu-cluster-essentials/cluster-essentials-bundle --json | \
     jq -r '.Tables[0].Rows[].name' | \
-    sed -ne '/image-locations/{ s/\.image-locations.*$//; s/-/:/; p }' | tail -n 1)
+    sed -ne '/image-locations/{
+      s/\.image-locations.*$//
+      s/-/:/
+      p
+    }' | tail -n 1)
   local bundle="registry.tanzu.vmware.com/tanzu-cluster-essentials/cluster-essentials-bundle@${tag}"
 
   rm -rf ./bundle
@@ -851,9 +855,12 @@ function infrastructureProvider {
     echo "aws"
     ;;
   *)
-    if kubectl get ds -n kube-system -o json | jq -r '.items[].metadata.name' | grep -q kindnet
+    if kubectl get ds -n kube-system -o name | grep -q kindnet
     then
       echo "kind"
+    elif kubectl get pod -n kube-system -o name | grep -q minikube
+    then
+      echo "minikube"
     else
       echo "unknown"
     fi
