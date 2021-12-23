@@ -888,6 +888,16 @@ envoy:
     type: LoadBalancer
 EOF
     ;;
+  kind)
+    cat > contour-values.yaml <<EOF
+envoy:
+  service:
+    type: NodePort
+    nodePorts: # Matching exposed ports in Kind spec
+      http: 31080
+      https: 31443
+EOF
+    ;;
   *)
     cat > contour-values.yaml <<EOF
 envoy:

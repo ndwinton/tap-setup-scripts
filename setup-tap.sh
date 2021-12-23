@@ -446,7 +446,7 @@ else
 
 ###
 ### Applications deployed in TAP will run at ${ENVOY_IP}
-### Please configure DNS for *.${APPS_DOMAIN} to point to that address
+### Please configure DNS for *.${APPS_DOMAIN} to map to ${ENVOY_IP}
 ###
 EOF
 fi
@@ -464,6 +464,7 @@ if [[ -n "$ACCELERATOR_IP" ]]
 then
   cat <<EOF
 ### App Accelerator is running at http://${ACCELERATOR_IP}
+### (There is no need to configure DNS for this)
 ###
 EOF
 fi
@@ -472,6 +473,7 @@ if [[ -n "$LIVE_VIEW_IP" ]]
 then
   cat <<EOF
 ### App Live View is running at http://${LIVE_VIEW_IP}
+### (There is no need to configure DNS for this)
 ###
 EOF
 fi
@@ -480,6 +482,7 @@ if [[ -n "$EDUCATES_IP" ]]
 then
   cat <<EOF
 ### Learning Center is running at http://${EDUCATES_IP}
+### Please configure DNS for $EDUCATES_DOMAIN to map to $EDUCATES_IP
 ###
 EOF
 fi
