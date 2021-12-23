@@ -84,6 +84,21 @@ log "Installing tanzu CLI"
 
 read -p 'Tanzu Network UAA Refresh Token: ' PIVNET_TOKEN
 pivnet login --api-token="$PIVNET_TOKEN"
+
+log "Latest Tanzu Cluster Essentials release found is $ESSENTIALS_VERSION"
+
+ESSENTIALS_FILE_NAME=tanzu-cluster-essentials-darwin-amd64-$ESSENTIALS_VERSION.tgz
+ESSENTIALS_FILE_ID=$(pivnet product-files \
+  -p tanzu-cluster-essentials \
+  -r $ESSENTIALS_VERSION \
+  --format=json | jq '.[] | select(.name == "'$ESSENTIALS_FILE_NAME'").id' )
+
+pivnet download-product-files \
+  --download-dir $DOWNLOADS \
+  --product-slug='tanzu-cluster-essentials' \
+  --release-version=$ESSENTIALS_VERSION \
+  --product-file-id=$ESSENTIALS_FILE_ID
+
 TAP_VERSION=$(pivnet releases -p tanzu-application-platform --format=json | \
   jq -r 'sort_by(.updated_at)[-1].version')
 
@@ -105,17 +120,10 @@ TANZU_DIR=$HOME/tanzu
 if [[ -d $TANZU_DIR ]]
 then
   UPGRADE_TANZU=true
-  tanzu plugin delete imagepullsecret
-  tanzu plugin delete package
-  tanzu plugin delete accelerator
-  tanzu plugin delete apps
-
-  test -d $TANZU_DIR/cli/accelerator/v0.5.0 && \
-    test ! -d $TANZU_DIR/cli/accelerator/OLD.v0.5.0 && \
-    mv $TANZU_DIR/cli/accelerator/v0.5.0 $TANZU_DIR/cli/accelerator/OLD.v0.5.0
-  test -d $TANZU_DIR/cli/apps/v0.5.0 && \
-    test ! -d $TANZU_DIR/cli/apps/OLD.v0.5.0 && \
-    mv $TANZU_DIR/cli/apps/v0.5.0 $TANZU_DIR/cli/apps/OLD.v0.5.0
+  tanzu plugin delete imagepullsecret 2> /dev/null
+  tanzu plugin delete package 2> /dev/null
+  rm -rf $TANZU_DIR/cli/{package,secret,accelerator,services,apps}
+  export TANZU_CLI_NO_INIT=true
 else
   UPGRADE_TANZU=false
   mkdir -p $TANZU_DIR
@@ -125,13 +133,16 @@ tar xvf $DOWNLOADS/tanzu-framework-darwin-amd64.tar -C $TANZU_DIR
 MOST_RECENT_CLI=$(find $TANZU_DIR/cli/core/ -name tanzu-core-darwin_amd64 | xargs ls -t | head -n 1)
 sudo install -m 0755 $MOST_RECENT_CLI /usr/local/bin/tanzu
 
+tanzu config set features.global.context-aware-cli-for-plugins false
+
 if $UPGRADE_TANZU
 then
+  tanzu update --yes --local $TANZU_DIR/cli
   tanzu plugin install secret --local $TANZU_DIR/cli
   tanzu plugin install package --local $TANZU_DIR/cli
   tanzu plugin install accelerator --local $TANZU_DIR/cli
   tanzu plugin install apps --local $TANZU_DIR/cli
-  tanzu update --yes --local $TANZU_DIR/cli
+  tanzu plugin install services --local $TANZU_DIR/cli
 else
   tanzu plugin install --local $TANZU_DIR/cli all
 fi
