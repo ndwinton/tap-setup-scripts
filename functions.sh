@@ -869,6 +869,7 @@ function infrastructureProvider {
 }
 
 function configureContour {
+  requireValue CONTOUR_SERVICE_TYPE
 
   case $(infrastructureProvider) in
   aws)
@@ -902,7 +903,7 @@ EOF
     cat > contour-values.yaml <<EOF
 envoy:
   service:
-    type: NodePort
+    type: $CONTOUR_SERVICE_TYPE
 EOF
     ;;
   esac
