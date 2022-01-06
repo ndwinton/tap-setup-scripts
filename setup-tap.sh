@@ -2,7 +2,7 @@
 #
 # Tanzu Application Platform installation script
 
-TAP_VERSION=0.4.0
+TAP_VERSION=0.5.0-build.5
 
 set -e
 
@@ -104,7 +104,7 @@ cat <<EOT
 
 This should either be one of the following two built-in profiles:
 
-  * dev
+  * light
   * full
 
 Or it can be a list of one or more of the following packages, separated
@@ -198,7 +198,7 @@ validateAndEnableSupplyChainComponent
 
 cat <<EOT
 
->>> Packages to exclude (from full or dev profiles)
+>>> Packages to exclude (from full or light profiles)
 
 You can use the short package names shown above
 
@@ -208,7 +208,7 @@ findOrPromptWithDefault EXCLUDED_PACKAGES "Excluded packages" "none"
 
 enablePreRequisites
 
-if isEnabled full dev tap-gui
+if isEnabled full light tap-gui
 then
   findOrPromptWithDefault GUI_DOMAIN "UI Domain" "gui.${DOMAIN}"
 fi
@@ -244,7 +244,7 @@ banner "The following packages will be installed:" ${!ENABLED[*]}
 if $DO_INIT
 then
   deployKappAndSecretgenControllers
-  if ! isEnabled full dev
+  if ! isEnabled full light
   then
     deployCertManager
     deployFluxCD
@@ -402,10 +402,10 @@ if isLocal
 then
   banner "Setting up port forwarding for App Acclerator, App Live View and TAP GUI (if present)"
 
-  isEnabled full dev cnrs && kubectl port-forward svc/envoy 8080:80 -n tanzu-system-ingress &
-  isEnabled accelerator full dev && kubectl port-forward service/acc-server 8877:80 -n accelerator-system &
-  isEnabled appliveview full dev && kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
-  isEnabled tap-gui full dev && kubectl port-forward svc/server 7000 -n tap-gui &
+  isEnabled full light cnrs && kubectl port-forward svc/envoy 8080:80 -n tanzu-system-ingress &
+  isEnabled accelerator full light && kubectl port-forward service/acc-server 8877:80 -n accelerator-system &
+  isEnabled appliveview full light && kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
+  isEnabled tap-gui full light && kubectl port-forward svc/server 7000 -n tap-gui &
 
   cat <<EOF
 

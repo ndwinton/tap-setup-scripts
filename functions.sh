@@ -294,13 +294,17 @@ function validateAndEnableInstallationOptions {
     cnrs) ;;
     conventions-controller) ;;
     convention-controller) ;; # Alias for above
-    dev) ;;
+    dev)
+      message "WARNING: The 'dev' profile has been replaced by 'light' -- assuming 'light'"
+      value=light
+      ;;
     developer-conventions) ;;
     full) ;;
     image-policy-webhook) ;;
     grype) ;;
     learningcenter) ;;
     learningcenter-workshops) ;;
+    light) ;;
     ootb-supply-chain-basic) ;;
     ootb-supply-chain-testing) ;;
     ootb-supply-chain-testing-scanning) ;;
@@ -322,9 +326,9 @@ function validateAndEnableInstallationOptions {
     ENABLED[$value]=true
   done
 
-  if isEnabled full dev && [[ ${#ENABLED[*]} != 1 ]]
+  if isEnabled full light && [[ ${#ENABLED[*]} != 1 ]]
   then
-    fatal "'full' and 'dev' must not be mixed with any other installation profiles"
+    fatal "'full' and 'light' must not be mixed with any other installation profiles"
   fi
   return 0
 }
@@ -336,12 +340,12 @@ function validateAndEnableSupplyChainComponent {
 
   case $SUPPLY_CHAIN in
   basic|testing|scanning)
-    isEnabled full dev && return 0
+    isEnabled full light && return 0
     ;;
   none)
-    if isEnabled full dev
+    if isEnabled full light
     then
-      message "Supply chain type cannot be 'none' for full or dev profiles -- using 'basic'"
+      message "Supply chain type cannot be 'none' for 'full' or 'light' profiles -- using 'basic'"
       SUPPLY_CHAIN='basic'
       return 0
     fi
@@ -549,6 +553,8 @@ service_account: default
 registry:
   server: "${REG_HOST}"
   repository: "${REG_BASE}"
+gitops:
+  ssh_secret: ""
 EOF
 
   if isEnabled ootb-supply-chain-basic
@@ -919,7 +925,7 @@ EOF
 function configureBuiltInProfiles {
   requireValue INSTALL_PROFILE SUPPLY_CHAIN ALV_SERVICE_TYPE
 
-  if isEnabled full dev
+  if isEnabled full light
   then
     cat > tap-values.yaml <<EOF
 profile: $INSTALL_PROFILE
