@@ -757,7 +757,7 @@ EOF
     banner "Creating basic ClusterImagePolicy"
 
     cat <<EOF | kubectl apply -f -
-apiVersion: signing.run.tanzu.vmware.com/v1beta1
+apiVersion: signing.apps.tanzu.vmware.com/v1beta1
 kind: ClusterImagePolicy
 metadata:
  name: image-policy
