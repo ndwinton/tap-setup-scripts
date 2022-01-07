@@ -226,7 +226,7 @@ then
   STORE_SERVICE_TYPE='NodePort'
   # Can't use vcap.me for educates
   EDUCATES_DOMAIN="educates.$(hostIp).nip.io"
-  CONTOUR_SERVICE_TYPE='ClusterIP'
+  CONTOUR_SERVICE_TYPE='NodePort'
 
 else
   CNR_PROVIDER=""
