@@ -202,20 +202,6 @@ function deployKappController() {
   kubectl get deployment kapp-controller -n kapp-controller  -o yaml | grep kapp-controller.carvel.dev/version:
 }
 
-function deployFluxCD() {
-banner "Deploying FluxCD source-controller"
-
-(kubectl get ns flux-system 2> /dev/null) || \
-  kubectl create namespace flux-system
-(kubectl get clusterrolebinding default-admin 2> /dev/null) || \
-kubectl create clusterrolebinding default-admin \
-  --clusterrole=cluster-admin \
-  --serviceaccount=flux-system:default
-kapp deploy -a flux-source-controller -n flux-system -y \
-  -f https://github.com/fluxcd/source-controller/releases/download/v0.15.4/source-controller.crds.yaml \
-  -f https://github.com/fluxcd/source-controller/releases/download/v0.15.4/source-controller.deployment.yaml
-}
-
 function createTapNamespace() {
 
   banner "Creating tap-install namespace"

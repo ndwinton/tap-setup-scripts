@@ -246,8 +246,8 @@ then
   deployKappAndSecretgenControllers
   if ! isEnabled full light
   then
-    deployCertManager
-    deployFluxCD
+    installLatest cert-manager cert-manager.tanzu.vmware.com
+    installLatest fluxcd-source-controller fluxcd.source.controller.tanzu.vmware.com
   fi
   createTapNamespace
   createTapRegistrySecret
@@ -402,7 +402,7 @@ if isLocal
 then
   banner "Setting up port forwarding for App Acclerator, App Live View and TAP GUI (if present)"
 
-  isEnabled full light cnrs && kubectl port-forward svc/envoy 8080:80 -n tanzu-system-ingress &
+  isEnabled full light cnrs contour && kubectl port-forward svc/envoy 8080:80 -n tanzu-system-ingress &
   isEnabled accelerator full light && kubectl port-forward service/acc-server 8877:80 -n accelerator-system &
   isEnabled appliveview full light && kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
   isEnabled tap-gui full light && kubectl port-forward svc/server 7000 -n tap-gui &
@@ -433,13 +433,13 @@ EOF
 else
   if [[ "$(infrastructureProvider)" == "aws" ]]
   then
-    ENVOY_IP=$(kubectl get svc envoy -n tanzu-system-ingress -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }')
-    GUI_IP=$(kubectl get svc server -n tap-gui -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }')
+    ENVOY_IP=$(kubectl get svc envoy -n tanzu-system-ingress -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }' || true)
+    GUI_IP=$(kubectl get svc server -n tap-gui -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }' || true)
     EDUCATES_IP=$(kubectl get svc learningcenter-portal -n learning-center-guided-ui -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }' || true)
   else
-    ENVOY_IP=$(kubectl get svc envoy -n tanzu-system-ingress -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
-    ACCELERATOR_IP=$(kubectl get svc acc-server -n accelerator-system -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
-    LIVE_VIEW_IP=$(kubectl get svc application-live-view-5112 -n app-live-view -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
+    ENVOY_IP=$(kubectl get svc envoy -n tanzu-system-ingress -o jsonpath='{ .status.loadBalancer.ingress[0].ip }' || true)
+    ACCELERATOR_IP=$(kubectl get svc acc-server -n accelerator-system -o jsonpath='{ .status.loadBalancer.ingress[0].ip }' || true)
+    LIVE_VIEW_IP=$(kubectl get svc application-live-view-5112 -n app-live-view -o jsonpath='{ .status.loadBalancer.ingress[0].ip }' || true)
     GUI_IP=$(kubectl get svc server -n tap-gui -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
   fi
   cat <<EOF
