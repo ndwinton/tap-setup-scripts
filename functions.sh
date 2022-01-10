@@ -392,7 +392,7 @@ PRE_REQ[grype]="scanning"
 PRE_REQ[service-bindings]="services-toolkit"
 PRE_REQ[services-toolkit]="service-bindings"
 PRE_REQ[spring-boot-conventions]="conventions-controller"
-PRE_REQ[tap-gui]="appliveview"
+#PRE_REQ[tap-gui]="appliveview"
 
 function enablePreRequisites {
   local initial=${!ENABLED[*]}
@@ -604,7 +604,7 @@ EOF
       run.appliveview.tanzu.vmware.com \
       app-live-view-values.yaml
 
-    installLatest appliveview \
+    installLatest appliveview-conventions \
       build.appliveview.tanzu.vmware.com
   fi
 }

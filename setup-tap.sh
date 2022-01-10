@@ -246,8 +246,9 @@ then
   deployKappAndSecretgenControllers
   if ! isEnabled full light
   then
-    installLatest cert-manager cert-manager.tanzu.vmware.com
-    installLatest fluxcd-source-controller fluxcd.source.controller.tanzu.vmware.com
+    : no-op
+    # installLatest cert-manager cert-manager.tanzu.vmware.com
+    # installLatest fluxcd-source-controller fluxcd.source.controller.tanzu.vmware.com
   fi
   createTapNamespace
   createTapRegistrySecret
