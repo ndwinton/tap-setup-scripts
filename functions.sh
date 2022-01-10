@@ -392,7 +392,6 @@ PRE_REQ[grype]="scanning"
 PRE_REQ[service-bindings]="services-toolkit"
 PRE_REQ[services-toolkit]="service-bindings"
 PRE_REQ[spring-boot-conventions]="conventions-controller"
-#PRE_REQ[tap-gui]="appliveview"
 
 function enablePreRequisites {
   local initial=${!ENABLED[*]}
@@ -457,11 +456,15 @@ function configureConventionsController {
 
 function configureSourceController {
   if isEnabled source-controller
-  then
+  then    
     banner "Installing Source Controller"
 
     installLatest source-controller controller.source.apps.tanzu.vmware.com
     kubectl get pods -n source-system
+
+    banner "Installing FluxCD Source Controller"
+    installLatest fluxcd-source-controller fluxcd.source.controller.tanzu.vmware.com
+    kubectl get pods -n flux-system
   fi
 }
 
