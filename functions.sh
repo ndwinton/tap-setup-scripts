@@ -1040,3 +1040,8 @@ function hostIp {
   # This works on both macOS and Linux
   ifconfig -a | awk '/^(en|wl)/,/(inet |status|TX error)/ { if ($1 == "inet") { print $2; exit; } }'
 }
+
+function latestPublicTapVersion {
+  curl -s https://network.tanzu.vmware.com/api/v2/products/tanzu-application-platform/releases | \
+    jq -r '.releases | sort_by(.release_date)[-1].version'
+}

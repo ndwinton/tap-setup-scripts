@@ -2,8 +2,6 @@
 #
 # Tanzu Application Platform installation script
 
-TAP_VERSION=0.5.0-build.5
-
 set -e
 
 source "$(dirname $0)/functions.sh"
@@ -13,11 +11,43 @@ source "$(dirname $0)/functions.sh"
 #####
 
 DO_INIT=true
-for arg in "$@"
+TAP_VERSION=$(latestPublicTapVersion)
+
+eval set -- "$@" --
+
+while true
 do
-  case "$arg" in
-  --skip-init)
+  case "$1" in
+  -s|--skip-init)
     DO_INIT=false
+    shift
+    ;;
+  -v|--version)
+    TAP_VERSION="$2"
+    shift 2
+    ;;    
+  --)
+    shift
+    break
+    ;;
+  -h|--help)
+    cat <<EOT
+Usage: $0 [--skip-init] [--version TAP-version] [--help]
+
+This script attempts to install Tanzu Application Platform on the
+currently targeted Kubernetes cluster. By default it will use the
+latest publicly available version.
+
+The script will prompt for the information that it needs to
+complete the installation, unless this has already been configured
+using environment variables. See the 'envrc-template' file for
+details of those variables.
+EOT
+    exit 1
+    ;;
+  *)
+    message "Usage: $0 [--skip-init] [--version TAP-version]"
+    exit 1
     ;;
   esac
 done
@@ -179,10 +209,11 @@ then
 
 >>> Extra supply chain
 
-The official documentation says that only one supply chain should
-be installed at a time. However, while unsupported, it is possible
-to install the combinations of basic+testing or basic+scanning
-supply chains together for experimentation.
+It is possible to install more than one supply chain at a time, as long
+as the labels used to select workloads are distinct enough.
+It is, therefore, possible to install the combinations of basic+testing
+or basic+scanning supply chains together. However, it is not
+possible to combine testing+scanning.
 
 Do you want to install an extra supply chain?
 
@@ -251,7 +282,7 @@ fi
 
 tanzu package available list --namespace tap-install
 
-# If using the 'unbundled' profile these will configure
+# If using the 'unbundled' profiles these will configure
 # and install the appropriate packages, otherwise they will
 # just generate the config files
 

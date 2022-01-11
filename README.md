@@ -1,14 +1,14 @@
 # Setting up your own Tanzu Application Platform cluster
 
-These are scripts that can be used to set a (beta) version of
+These are scripts that can be used to set up a version of
 Tanzu Application Platform (TAP) on your own cluster.
 
 The process of installing TAP is described in the
-[official documentation](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.4/tap/GUID-install-intro.html).
+[official documentation](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/index.html).
 It is not particularly difficult, but you may find that these scripts
 save you some time if you just want to get something up and running
 quickly.
-In particular, they will take care in installing the necessary
+In particular, they will take care of installing the necessary
 pre-requisites and will generate configuration files that you
 may later refine if you wish.
 
@@ -26,9 +26,9 @@ Specific instructions for EKS are in
 
 It may also work (but is less tested) on TCE and TKG.
 There are some specific addtional steps for
-[TCE](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.4/tap/GUID-install-tce.html)
+[TCE](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/1.0/tap/GUID-install-tce.html)
 and
-[TKG](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.4/tap/GUID-install-tkg.html)
+[TKG](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/1.0/tap/GUID-install-tkg.html)
 steps that the setup script does not handle.
 It attempts to detect whether it is running against a TCEor TKG cluster
 and to notify you of the additional work that needs to be done.
@@ -40,7 +40,7 @@ Kind, and that should also be possible (but has not been tested)
 with Minikube.
 
 As far as resources are concerned, from the pre-requisites in the
-[the official documentation](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.4/tap/GUID-install-general.html):
+[the official documentation](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/1.0/tap/GUID-install-general.html):
 
 > To deploy all Tanzu Application Platform packages your cluster must
 > have at least 8 GB of RAM across all nodes available to Tanzu
@@ -215,6 +215,6 @@ The TAP components are configured to work with applications deployed primarily i
 the `default` namespace.
 
 You should be able to follow the
-[Getting Started guide](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/0.4/tap/GUID-getting-started.html)
+[Getting Started guide](https://docs.vmware.com/en/VMware-Tanzu-Application-Platform/1.0/tap/GUID-getting-started.html)
 to deploy your first application to the platform.
 
