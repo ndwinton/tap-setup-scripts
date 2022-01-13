@@ -443,7 +443,7 @@ metadata:
   name: cert-manager-tap-install-sa
   namespace: tap-install
 EOF
-  kubectl apply -f cert-manager-rbac.yml
+  kubectl apply -f cert-manager-rbac.yaml
 
   cat > cert-manager-install.yaml <<EOF
 apiVersion: packaging.carvel.dev/v1alpha1
