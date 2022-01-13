@@ -1030,7 +1030,7 @@ metadata:
   namespace: tap-install
 stringData:
   values.yaml: |
-    $(embedYaml contour-values.yaml '    ')
+$(embedYaml contour-values.yaml '    ')
 EOF
     kubectl apply -f contour-install.yaml
 
