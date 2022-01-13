@@ -29,13 +29,17 @@ function fatal {
 function findOrPrompt {
   local varName="$1"
   local prompt="$2"
+  local secret=${3-false}
 
   if [[ -z "${!varName}" ]]
   then
     echo "$varName not found in environment"
     read -p "$prompt: " $varName
+  elif $secret
+  then
+    echo "Value for $varName found in environment: <SECRET>"
   else
-    echo "Value for $varName found in environment"
+    echo "Value for $varName found in environment: ${!varName}"
   fi
 }
 
@@ -105,12 +109,6 @@ function isLocal() {
   requireValue DOMAIN
 
   [[ $DOMAIN == "vcap.me" ]]
-}
-
-function unbundled() {
-  requireValue INSTALL_PROFILE
-
-  [[ $INSTALL_PROFILE == 'unbundled' ]]
 }
 
 function deployKappAndSecretgenControllers {
@@ -246,7 +244,9 @@ function loadPackageRepository {
 }
 
 function embedYaml {
-  cat $* | sed -e '/^---/d; s/^/  /;'
+  local file="$1"
+  local indent="${2-  }"
+  cat $file | sed -e "/^---/d; s/^/$indent/;"
 }
 
 declare -A ENABLED
@@ -406,6 +406,75 @@ function enablePreRequisites {
   done
 }
 
+configureCertManager {
+  if ! isEnabled full light
+  then
+    banner "Installing Cert Manager"
+
+    cat > cert-manager-rbac.yaml <<EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cert-manager-tap-install-cluster-admin-role
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cert-manager-tap-install-cluster-admin-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cert-manager-tap-install-cluster-admin-role
+subjects:
+- kind: ServiceAccount
+  name: cert-manager-tap-install-sa
+  namespace: tap-install
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cert-manager-tap-install-sa
+  namespace: tap-install
+EOF
+  kubectl apply -f cert-manager-rbac.yml
+
+  cat > cert-manager-install.yaml <<EOF
+apiVersion: packaging.carvel.dev/v1alpha1
+kind: PackageInstall
+metadata:
+  name: cert-manager
+  namespace: tap-install
+spec:
+  serviceAccountName: cert-manager-tap-install-sa
+  packageRef:
+    refName: cert-manager.tanzu.vmware.com
+    versionSelection:
+      constraints: "$(latestVersion cert-manager.tanzu.vmware.com)"
+      prereleases: {}
+EOF
+  kubectl apply -f cert-manager-install.yaml
+
+  tanzu package installed get cert-manager -n tap-install
+  fi
+}
+
+function configureFluxCDSourceController {
+  if ! isEnabled full light
+  then
+    banner "Installing FluxCD Source Controller"
+
+    installLatest fluxcd-source-controller fluxcd.source.controller.tanzu.vmware.com
+    kubectl get pods -n flux-system
+  fi
+}
+
 function configureCloudNativeRuntimes {
   requireValue CNR_LOCAL_DNS APPS_DOMAIN
 
@@ -461,10 +530,6 @@ function configureSourceController {
 
     installLatest source-controller controller.source.apps.tanzu.vmware.com
     kubectl get pods -n source-system
-
-    banner "Installing FluxCD Source Controller"
-    installLatest fluxcd-source-controller fluxcd.source.controller.tanzu.vmware.com
-    kubectl get pods -n flux-system
   fi
 }
 
@@ -903,11 +968,74 @@ EOF
     ;;
   esac
 
-  if isEnabled contour
+  if ! isEnabled full light
   then
     banner "Installing Contour"
 
-    installLatest contour contour.tanzu.vmware.com countour-values.yaml
+    cat > contour-rbac.yaml <<EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: contour-tap-install-cluster-admin-role
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: contour-tap-install-cluster-admin-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: contour-tap-install-cluster-admin-role
+subjects:
+- kind: ServiceAccount
+  name: contour-tap-install-sa
+  namespace: tap-install
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: contour-tap-install-sa
+  namespace: tap-install
+EOF
+    kubectl apply -f contour-rbac.yaml
+
+    cat > contour-install.yaml <<EOF
+apiVersion: packaging.carvel.dev/v1alpha1
+kind: PackageInstall
+metadata:
+  name: contour
+  namespace: tap-install
+spec:
+  serviceAccountName: contour-tap-install-sa
+  packageRef:
+    refName: contour.tanzu.vmware.com
+    versionSelection:
+      constraints: 1.18.2+tap.1
+      prereleases: {}
+  values:
+  - secretRef:
+      name: contour-values
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: contour-values
+  namespace: tap-install
+stringData:
+  values.yaml: |
+    $(embedYaml contour-values.yaml '    ')
+EOF
+    kubectl apply -f contour-install.yaml
+
+    tanzu package installed get contour -n tap-install
+    kubectl get po -n tanzu-system-ingress
   fi
 }
 

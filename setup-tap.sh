@@ -81,7 +81,7 @@ will be prompted for.
 EOT
 
 findOrPrompt TN_USERNAME "Tanzu Network Username"
-findOrPrompt TN_PASSWORD "Tanzu Network Password (will be echoed)"
+findOrPrompt TN_PASSWORD "Tanzu Network Password (will be echoed)" true
 
 cat <<EOT
 
@@ -93,7 +93,7 @@ The container registry should be something like 'myuser/tap' for DockerHub or
 EOT
 findOrPrompt REGISTRY "Container Registry"
 findOrPrompt REG_USERNAME "Registry Username"
-findOrPrompt REG_PASSWORD "Registry Password (will be echoed)"
+findOrPrompt REG_PASSWORD "Registry Password (will be echoed)" true
 
 cat <<EOT
 
@@ -255,8 +255,6 @@ then
   ALV_SERVICE_TYPE='ClusterIP'
   GUI_SERVICE_TYPE='ClusterIP'
   STORE_SERVICE_TYPE='NodePort'
-  # Can't use vcap.me for educates
-  EDUCATES_DOMAIN="educates.$(hostIp).nip.io"
   CONTOUR_SERVICE_TYPE='NodePort'
 
 else
@@ -286,7 +284,9 @@ tanzu package available list --namespace tap-install
 # and install the appropriate packages, otherwise they will
 # just generate the config files
 
+configureCertManager
 configureContour
+configureFluxCDSourceController
 configureCloudNativeRuntimes
 configureConventionsController
 configureSourceController
