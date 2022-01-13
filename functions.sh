@@ -406,12 +406,36 @@ function enablePreRequisites {
   done
 }
 
+function createIfNeeded {
+  local file="$1"
+  requireValue RECREATE_CONFIG
+
+  if [[ ! -e $file ]] || $RECREATE_CONFIG
+  then
+    cat > $file
+  else
+    message "Re-using existing file: $file"
+  fi
+}
+
+function appendIfNeeded {
+  local file="$1"
+  requireValue RECREATE_CONFIG
+
+  if [[ ! -e $file ]] || $RECREATE_CONFIG
+  then
+    cat >> $file
+  else
+    message "Re-using existing file: $file"
+  fi
+}
+
 function configureCertManager {
   if ! isEnabled full light
   then
     banner "Installing Cert Manager"
 
-    cat > cert-manager-rbac.yaml <<EOF
+    createIfNeeded cert-manager-rbac.yaml <<EOF
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -445,7 +469,7 @@ metadata:
 EOF
   kubectl apply -f cert-manager-rbac.yaml
 
-  cat > cert-manager-install.yaml <<EOF
+  createIfNeeded cert-manager-install.yaml <<EOF
 apiVersion: packaging.carvel.dev/v1alpha1
 kind: PackageInstall
 metadata:
@@ -480,7 +504,7 @@ function configureCloudNativeRuntimes {
 
   if [[ "${CNR_PROVIDER}" == "local" ]]
   then
-    cat > cnrs-values.yaml <<EOF
+    createIfNeeded cnrs-values.yaml <<EOF
 ---
 domain_name: "${APPS_DOMAIN}"
 provider: "${CNR_PROVIDER}"
@@ -493,7 +517,7 @@ ingress:
     namespace: tanzu-system-ingress
 EOF
   else
-    cat > cnrs-values.yaml <<EOF
+    createIfNeeded cnrs-values.yaml <<EOF
 ---
 domain_name: "${APPS_DOMAIN}"
 ingress:
@@ -536,7 +560,7 @@ function configureSourceController {
 function configureAppAccelerator {
   requireValue AA_SERVICE_TYPE
 
-  cat > app-accelerator-values.yaml <<EOF
+  createIfNeeded app-accelerator-values.yaml <<EOF
 ---
 server:
   service_type: "${AA_SERVICE_TYPE}"
@@ -557,7 +581,7 @@ EOF
 function configureTanzuBuildService {
   requireValue TN_USERNAME TN_PASSWORD REGISTRY REG_USERNAME REG_PASSWORD
 
-  cat > tbs-values.yaml <<EOF
+  createIfNeeded tbs-values.yaml <<EOF
 ---
 tanzunet_username: "${TN_USERNAME}"
 tanzunet_password: "${TN_PASSWORD}"
@@ -601,7 +625,7 @@ function configureOotbTemplates {
 function configureOotbSupplyChains {
   requireValue REG_HOST REG_BASE
 
-  cat > ootb-supply-chain-values.yaml <<EOF
+  createIfNeeded ootb-supply-chain-values.yaml <<EOF
 ---
 service_account: default
 registry:
@@ -660,7 +684,7 @@ function configureSpringBootConventions {
 function configureAppLiveView {
   requireValue ALV_SERVICE_TYPE
 
-  cat > app-live-view-values.yaml <<EOF
+  createIfNeeded app-live-view-values.yaml <<EOF
 ---
 connector_namespaces: [default]
 service_type: "${ALV_SERVICE_TYPE}"
@@ -680,7 +704,7 @@ EOF
 function configureTapGui {
   requireValue GUI_DOMAIN GUI_SERVICE_TYPE GUI_CATALOG_URL
 
-  cat > tap-gui-values.yaml <<EOF
+  createIfNeeded tap-gui-values.yaml <<EOF
 ---
 namespace: tap-gui
 service_type: ${GUI_SERVICE_TYPE}
@@ -722,7 +746,7 @@ EOF
 }
 
 function configureLearningCenter {
-  cat > learning-center-values.yaml <<EOF
+  createIfNeeded learning-center-values.yaml <<EOF
 ---
 ingressDomain: ${EDUCATES_DOMAIN}
 EOF
@@ -753,7 +777,7 @@ function configureServiceBindings {
 }
 
 function configureScstStore {
-  cat > scst-store-values.yaml <<EOF
+  createIfNeeded scst-store-values.yaml <<EOF
 ---
 app_service_type: ${STORE_SERVICE_TYPE} # (optional) Defaults to LoadBalancer. Change to NodePort for distributions that don't support LoadBalancer
 EOF
@@ -770,7 +794,7 @@ EOF
 }
 
 function configureSigning {
-  cat > scst-sign-values.yaml <<EOF
+  createIfNeeded scst-sign-values.yaml <<EOF
 ---
 allow_unmatched_images: true
 EOF
@@ -852,7 +876,7 @@ EOF
 
 function configureScanning {
 
-  cat > scst-grype-values.yaml <<EOF
+  createIfNeeded scst-grype-values.yaml <<EOF
 namespace: "default"
 targetImagePullSecret: "registry-credentials"
 EOF
@@ -933,7 +957,7 @@ function configureContour {
 
   case $(infrastructureProvider) in
   aws)
-      cat > contour-values.yaml <<EOF
+      createIfNeeded contour-values.yaml <<EOF
 infrastructure_provider: aws
 envoy:
   service:
@@ -943,14 +967,14 @@ EOF
       ;;
 
   google)
-    cat > contour-values.yaml <<EOF
+    createIfNeeded contour-values.yaml <<EOF
 envoy:
   service:
     type: LoadBalancer
 EOF
     ;;
   kind)
-    cat > contour-values.yaml <<EOF
+    createIfNeeded contour-values.yaml <<EOF
 envoy:
   service:
     type: NodePort
@@ -960,7 +984,7 @@ envoy:
 EOF
     ;;
   *)
-    cat > contour-values.yaml <<EOF
+    createIfNeeded contour-values.yaml <<EOF
 envoy:
   service:
     type: $CONTOUR_SERVICE_TYPE
@@ -972,7 +996,7 @@ EOF
   then
     banner "Installing Contour"
 
-    cat > contour-rbac.yaml <<EOF
+    createIfNeeded contour-rbac.yaml <<EOF
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -1006,7 +1030,7 @@ metadata:
 EOF
     kubectl apply -f contour-rbac.yaml
 
-    cat > contour-install.yaml <<EOF
+    createIfNeeded contour-install.yaml <<EOF
 apiVersion: packaging.carvel.dev/v1alpha1
 kind: PackageInstall
 metadata:
@@ -1044,7 +1068,7 @@ function configureBuiltInProfiles {
 
   if isEnabled full light
   then
-    cat > tap-values.yaml <<EOF
+    createIfNeeded tap-values.yaml <<EOF
 profile: $INSTALL_PROFILE
 ceip_policy_disclosed: true # Installation fails if this is set to 'false'
 
@@ -1088,7 +1112,7 @@ EOF
       ;;
     esac
 
-    cat >> tap-values.yaml <<EOF
+    appendIfNeeded tap-values.yaml <<EOF
 supply_chain: ${SUPPLY_CHAIN}
 
 $SC_NAME:
@@ -1098,7 +1122,7 @@ EOF
 
     if isEnabled full
     then
-      cat >> tap-values.yaml <<EOF
+      appendIfNeeded tap-values.yaml <<EOF
 
 learningcenter:
 $(embedYaml learning-center-values.yaml)
@@ -1152,7 +1176,7 @@ FULL_PACKAGE[learningcenter-workshops]="workshops.learningcenter.tanzu.vmware.co
 function addExclusions {
   local package
   local fullPackage
-  if [[ "$EXCLUDED_PACKAGES" != "none" ]]
+  if [[ "$EXCLUDED_PACKAGES" != "none" ]] && $RECREATE_CONFIG
   then
     echo "excluded_packages:" >> tap-values.yaml
     for package in $EXCLUDED_PACKAGES
@@ -1164,6 +1188,7 @@ function addExclusions {
     done
   fi
 }
+
 function hostIp {
   # This works on both macOS and Linux
   ifconfig -a | awk '/^(en|wl)/,/(inet |status|TX error)/ { if ($1 == "inet") { print $2; exit; } }'

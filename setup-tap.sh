@@ -12,12 +12,17 @@ source "$(dirname $0)/functions.sh"
 
 DO_INIT=true
 TAP_VERSION=$(latestPublicTapVersion)
+RECREATE_CONFIG=true
 
 eval set -- "$@" --
 
 while true
 do
   case "$1" in
+  -r|--reuse-config)
+    RECREATE_CONFIG=false
+    shift
+    ;;
   -s|--skip-init)
     DO_INIT=false
     shift
@@ -32,7 +37,7 @@ do
     ;;
   -h|--help)
     cat <<EOT
-Usage: $0 [--skip-init] [--version TAP-version] [--help]
+Usage: $0 [--skip-init] [--reuse-config] [--version TAP-version] [--help]
 
 This script attempts to install Tanzu Application Platform on the
 currently targeted Kubernetes cluster. By default it will use the
@@ -42,11 +47,20 @@ The script will prompt for the information that it needs to
 complete the installation, unless this has already been configured
 using environment variables. See the 'envrc-template' file for
 details of those variables.
+
+With '--skip-init' it will omit the deployment of the kapp and
+secretgen controllers, and the reload of the package repository.
+
+With '--reuse-config' it will re-use any existing YAML config files
+that may have been created by a previous run of the script.
+It will always create any that are missing. This can be used to allow
+you to make amendments before re-running the script or just to use it
+to create configuration that you will then use yourself.
 EOT
     exit 1
     ;;
   *)
-    message "Usage: $0 [--skip-init] [--version TAP-version]"
+    message "Usage: $0 [--skip-init] [--reuse-config] [--version TAP-version]"
     exit 1
     ;;
   esac
