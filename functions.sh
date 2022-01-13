@@ -406,7 +406,7 @@ function enablePreRequisites {
   done
 }
 
-configureCertManager {
+function configureCertManager {
   if ! isEnabled full light
   then
     banner "Installing Cert Manager"
