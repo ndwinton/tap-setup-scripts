@@ -925,6 +925,8 @@ function configureTekton {
 }
 
 function infrastructureProvider {
+  requireValue DOMAIN
+
   if [[ -n "$INFRASTRUCTURE_PROVIDER" ]]
   then
     echo $INFRASTRUCTURE_PROVIDER
@@ -945,6 +947,9 @@ function infrastructureProvider {
     elif kubectl get pod -n kube-system -o name | grep -q minikube
     then
       echo "minikube"
+    elif [[ "$DOMAIN" == *.calatrava.vmware.com ]]
+    then
+      echo "calatrava"
     else
       echo "unknown"
     fi
@@ -981,6 +986,16 @@ envoy:
     nodePorts: # Matching exposed ports in Kind spec
       http: 31080
       https: 31443
+EOF
+    ;;
+  calatrava)
+    createIfNeeded contour-values.yaml <<EOF
+envoy:
+  service:
+    type: LoadBalancer
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: "$DOMAIN"
+      external-dns.calatrava.vmware.com/with-wildcard: "true"
 EOF
     ;;
   *)
