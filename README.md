@@ -192,6 +192,16 @@ There are some additional "helper" scripts that you can use to
 set up a cluster and configure DNS.
 There are described in the [README_AWS_EKS.md](README_AWS_EKS.md) file.
 
+### Using Calatrava
+
+There is some special support for using VMware's private "Calatrava"
+environment.
+This is primarily to do with the way that Calatrava makes use of
+[external DNS](https://github.com/kubernetes-sigs/external-dns).
+Some of the configuration is handled in the main setup script, but
+you will also need to run the `calatrava-configure-dns.sh`
+script if you have deployed the TAP GUI.
+
 ## Using TAP
 
 For a local installation, port forwarding will have been set up so that
