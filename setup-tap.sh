@@ -240,6 +240,7 @@ else
 fi
 
 validateAndEnableSupplyChainComponent
+validateExtraSupplyChain
 
 cat <<EOT
 
@@ -323,6 +324,8 @@ configureServicesToolkit
 configureServiceBindings
 
 configureBuiltInProfiles
+
+configureExtraSupplyChain # Has to be done after profile install
 
 configureImageSigningPolicy
 

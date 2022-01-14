@@ -322,7 +322,7 @@ function validateAndEnableInstallationOptions {
 function validateAndEnableSupplyChainComponent {
   requireValue SUPPLY_CHAIN
 
-  validateAndEnableExtraSupplyChain
+  validateExtraSupplyChain
 
   case $SUPPLY_CHAIN in
   basic|testing|scanning)
@@ -356,25 +356,49 @@ function validateAndEnableSupplyChainComponent {
   return 0
 }
 
-function validateAndEnableExtraSupplyChain {
-    requireValue SUPPLY_CHAIN EXTRA_SUPPLY_CHAIN
+function validateExtraSupplyChain {
+  requireValue SUPPLY_CHAIN EXTRA_SUPPLY_CHAIN
 
-    case $EXTRA_SUPPLY_CHAIN in
-  basic)
-    ENABLED[ootb-supply-chain-basic]=true
-    ;;
+  [[ "$SUPPLY_CHAIN" == "$EXTRA_SUPPLY_CHAIN" ]] && EXTRA_SUPPLY_CHAIN="none"
+
+  case $EXTRA_SUPPLY_CHAIN in
   testing)
     [[ "$SUPPLY_CHAIN" == "scanning" || "$SUPPLY_CHAIN" == "testing_scanning" ]] && \
       fatal "Cannot enable both 'testing' and 'scanning' supply chains"
-    ENABLED[ootb-supply-chain-testing]=true
     ;;
   scanning|testing_scanning)
     [[ "$SUPPLY_CHAIN" == "testing" ]] && \
       fatal "Cannot enable both 'testing' and 'scanning' supply chains"
+    ;;
+  none|basic)
+    : no-op
+    ;;
+  *)
+    fatal "Invalid extra supply chain: $EXTRA_SUPPLY_CHAIN"
+    ;;
+  esac
+}
+
+function enableExtraSupplyChain {
+  requireValue EXTRA_SUPPLY_CHAIN
+
+  case $EXTRA_SUPPLY_CHAIN in
+  basic)
+    ENABLED[ootb-supply-chain-basic]=true
+    ;;
+  testing)
+    ENABLED[ootb-supply-chain-testing]=true
+    ;;
+  scanning|testing_scanning)
     ENABLED[ootb-supply-chain-testing-scanning]=true
     ;;
   esac
+}
 
+function configureExtraSupplyChain {
+  validateExtraSupplyChain
+  enableExtraSupplyChain
+  configureOotbSupplyChains
 }
 
 declare -A PRE_REQ
