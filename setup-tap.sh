@@ -285,6 +285,10 @@ fi
 
 banner "The following packages will be installed:" ${!ENABLED[*]}
 
+# Explicitly set the default namespace before any other commands
+
+kubectl config set-context --current --namespace default
+
 if $DO_INIT
 then
   deployKappAndSecretgenControllers
