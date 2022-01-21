@@ -39,11 +39,10 @@ export EXCLUDED_PACKAGES=none
 # SUPPLY_CHAIN and EXTRA_SUPPLY_CHAIN
 # The choice of primary supply chain. Valid values are: none, basic,
 # testing, or scanning.
-# It is also possible to install a second supply chain, although
-# this may not be a supported configuration.
-export SUPPLY_CHAIN=testing 
-export EXTRA_SUPPLY_CHAIN=none
-
+# It is also possible to install a second supply chain, as long as
+# they use different workload selectors.
+export SUPPLY_CHAIN=basic
+export EXTRA_SUPPLY_CHAIN=testing
 
 # The DOMAIN must be a static URL which does not change with the
 # underlying IP or LoadBalancer. This means you cannot use clever
