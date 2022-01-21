@@ -537,7 +537,7 @@ fi
 cat <<EOF
 
 ###
-### To set up TAP services for use in a namespace run the following:"
+### To set up TAP services for use in a namespace run the following:
 ###
 
   kubectl apply -n YOUR-NAMESPACE -f $PWD/developer-namespace-setup.yaml
