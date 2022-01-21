@@ -26,12 +26,12 @@ export REG_PASSWORD=password
 export INFRASTRUCTURE_PROVIDER= 
 
 # INSTALL_PROFILE
-# Either one of 'full' or 'dev' or a space-separated list of individual
+# Either one of 'full' or 'light' or a space-separated list of individual
 # (short-form) package names
 export INSTALL_PROFILE=full
 
 # EXCLUDED_PACKAGES
-# If using 'full' or 'dev' profiles, this is a space-separated
+# If using 'full' or 'light' profiles, this is a space-separated
 # list of packages NOT to include (or 'none' if there are no
 # packages to exclude).
 export EXCLUDED_PACKAGES=none
