@@ -607,6 +607,9 @@ function configureTanzuBuildService {
 
   createIfNeeded tbs-values.yaml <<EOF
 ---
+# Uncomment the following 2 lines to enable automatic dependency updates
+# enable_automatic_dependency_updates: true
+# descriptor_name: tap-1.0.0-full
 tanzunet_username: "${TN_USERNAME}"
 tanzunet_password: "${TN_PASSWORD}"
 kp_default_repository: "$REGISTRY"

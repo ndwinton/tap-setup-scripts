@@ -6,7 +6,7 @@ export TN_PASSWORD='password with a special character that requires single quote
 # DockerHub requires the format username/registry. Other registries,
 # such as Harbor are different and likely to be of the form
 # my.repo.host/my-project/my-registry
-export REGISTRY=user/build-service 
+export REGISTRY=user/tap 
 export REG_USERNAME=username
 export REG_PASSWORD=password
 ### For GCR use something like this:
@@ -60,7 +60,7 @@ export GUI_DOMAIN="gui.$DOMAIN"
 export APPS_DOMAIN="apps.$DOMAIN"
 # EDUCATES_DOMAIN is only needed if learningcenter package is selected
 # for installation
-export EDUCATES_DOMAIN="learning-center.$DOMAIN" 
+export EDUCATES_DOMAIN="learn.$DOMAIN" 
 
 # GUI_CATALOG_URL
 # The GUI needs a (blank) catalog to present.
