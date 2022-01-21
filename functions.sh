@@ -359,16 +359,23 @@ function validateAndEnableSupplyChainComponent {
 function validateExtraSupplyChain {
   requireValue SUPPLY_CHAIN EXTRA_SUPPLY_CHAIN
 
-  [[ "$SUPPLY_CHAIN" == "$EXTRA_SUPPLY_CHAIN" ]] && EXTRA_SUPPLY_CHAIN="none"
+  if [[ "$SUPPLY_CHAIN" == "$EXTRA_SUPPLY_CHAIN" ]]
+  then
+    EXTRA_SUPPLY_CHAIN="none"
+  fi
 
   case $EXTRA_SUPPLY_CHAIN in
   testing)
-    [[ "$SUPPLY_CHAIN" == "scanning" || "$SUPPLY_CHAIN" == "testing_scanning" ]] && \
+    if [[ "$SUPPLY_CHAIN" == "scanning" || "$SUPPLY_CHAIN" == "testing_scanning" ]]
+    then
       fatal "Cannot enable both 'testing' and 'scanning' supply chains"
+    fi
     ;;
   scanning|testing_scanning)
-    [[ "$SUPPLY_CHAIN" == "testing" ]] && \
+    if [[ "$SUPPLY_CHAIN" == "testing" ]]
+    then
       fatal "Cannot enable both 'testing' and 'scanning' supply chains"
+    fi
     ;;
   none|basic)
     : no-op
