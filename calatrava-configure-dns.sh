@@ -48,6 +48,10 @@ DNS for the main system ingress (via Contour/Envoy) should have been taken
 care of via annotations added during that package installation. This script
 only deals with the remaining DNS entries not handled in that manner.
 
+Note that you DO NOT need to run this script if you are exposing the TAP
+GUI via the system ingress as tap-gui.<namespace>.calatrava.vmware.com,
+which is the default behaviour of the setup.sh script.
+
 EOF
 
 findOrPrompt DOMAIN "Root Domain"
