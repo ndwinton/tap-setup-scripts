@@ -254,10 +254,6 @@ findOrPromptWithDefault EXCLUDED_PACKAGES "Excluded packages" "none"
 
 enablePreRequisites
 
-if isEnabled full light tap-gui
-then
-  findOrPromptWithDefault GUI_DOMAIN "UI Domain" "gui.${DOMAIN}"
-fi
 findOrPromptWithDefault APPS_DOMAIN "Applications domain" "apps.${DOMAIN}"
 
 ### Set up (global, sigh ...) data used elsewhere
@@ -268,7 +264,6 @@ then
   CNR_LOCAL_DNS="true"
   AA_SERVICE_TYPE='NodePort'
   ALV_SERVICE_TYPE='ClusterIP'
-  GUI_SERVICE_TYPE='ClusterIP'
   STORE_SERVICE_TYPE='NodePort'
   CONTOUR_SERVICE_TYPE='NodePort'
 
@@ -277,7 +272,6 @@ else
   CNR_LOCAL_DNS="false"
   AA_SERVICE_TYPE='LoadBalancer'
   ALV_SERVICE_TYPE='LoadBalancer'
-  GUI_SERVICE_TYPE='LoadBalancer'
   STORE_SERVICE_TYPE='LoadBalancer'
   CONTOUR_SERVICE_TYPE='LoadBalancer'
   findOrPromptWithDefault EDUCATES_DOMAIN "Learning Center domain" "learn.$DOMAIN"
@@ -460,19 +454,20 @@ then
 # App Live View and the TAP GUI has been set up (if configured).
 # If you need to restart it, run the following commands.
 #
-# To set up port forwarding for Envoy (http://*.${APPS_DOMAIN}:8080) run:"
+# To set up port forwarding for Envoy (http://*.${APPS_DOMAIN}:8080) run:
 
   kubectl port-forward -n tanzu-system-ingress svc/envoy 8080:80 &
 
-# To set up port forwarding for App Accelerator (http://localhost:8877) run:"
+# To set up port forwarding for App Accelerator (http://localhost:8877) run:
 
   kubectl port-forward -n accelerator-system svc/acc-server 8877:80 &
 
-# To set up port forwarding for App Live View (http://localhost:5112) run:"
+# To set up port forwarding for App Live View (http://localhost:5112) run:
 
   kubectl port-forward service/application-live-view-5112 5112:80 -n app-live-view &
 
-# To set up port forwarding for TAP GUI (http://${GUI_DOMAIN}:7000) run:"
+# To set up port forwarding for TAP GUI (http://localhost:7000) run:
+# Note that the TAP GUI is also available via http://tap-gui.${DOMAIN}:8080
 
   kubectl port-forward svc/server 7000 -n tap-gui &
 
@@ -481,28 +476,17 @@ else
   if [[ "$(infrastructureProvider)" == "aws" ]]
   then
     ENVOY_IP=$(kubectl get svc envoy -n tanzu-system-ingress -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }' || true)
-    GUI_IP=$(kubectl get svc server -n tap-gui -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }' || true)
     EDUCATES_IP=$(kubectl get svc learningcenter-portal -n learning-center-guided-ui -o jsonpath='{ .status.loadBalancer.ingress[0].hostname }' || true)
   else
     ENVOY_IP=$(kubectl get svc envoy -n tanzu-system-ingress -o jsonpath='{ .status.loadBalancer.ingress[0].ip }' || true)
     ACCELERATOR_IP=$(kubectl get svc acc-server -n accelerator-system -o jsonpath='{ .status.loadBalancer.ingress[0].ip }' || true)
     LIVE_VIEW_IP=$(kubectl get svc application-live-view-5112 -n app-live-view -o jsonpath='{ .status.loadBalancer.ingress[0].ip }' || true)
-    GUI_IP=$(kubectl get svc server -n tap-gui -o jsonpath='{ .status.loadBalancer.ingress[0].ip }')
   fi
   cat <<EOF
 
 ###
 ### Applications deployed in TAP will run at ${ENVOY_IP}
-### Please configure DNS for *.${APPS_DOMAIN} to map to ${ENVOY_IP}
-###
-EOF
-fi
-
-if [[ -n "$GUI_IP" ]]
-then
-  cat <<EOF
-### The TAP GUI will run at http://${GUI_DOMAIN}:7000
-### Please configure DNS for $GUI_DOMAIN to map to ${GUI_IP}
+### Please configure DNS for *.${APPS_DOMAIN} and tap-gui.${DOMAIN} to map to ${ENVOY_IP}
 ###
 EOF
 fi

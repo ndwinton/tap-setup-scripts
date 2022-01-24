@@ -736,38 +736,25 @@ EOF
 }
 
 function configureTapGui {
-  requireValue GUI_DOMAIN GUI_SERVICE_TYPE GUI_CATALOG_URL
+  requireValue DOMAIN GUI_CATALOG_URL
 
   createIfNeeded tap-gui-values.yaml <<EOF
 ---
 namespace: tap-gui
-service_type: ${GUI_SERVICE_TYPE}
+service_type: ClusterIP
+ingressEnabled: "true"
+ingressDomain: "${DOMAIN}" # This makes the host name tap-gui.${DOMAIN}
 app_config:
   app:
-    baseUrl: http://${GUI_DOMAIN}:7000
-  #
-  # There are default public GitHub and GitLab integrations
-  # You only need to add values such as the following if you want
-  # to access private repositories
-  #
-  # integrations:
-  #   github:
-  #     - host: github.com
-  #       token: <GITHUB-TOKEN>
-  #   gitlab:
-  #     - host: <GITLAB-HOST>
-  #       apiBaseUrl: https://<GITLAB-URL>/api/v4
-  #       token: <GITLAB-TOKEN>
-  #
+    baseUrl: http://tap-gui.${DOMAIN}
   catalog:
     locations:
       - type: url
         target: ${GUI_CATALOG_URL}
   backend:
-      baseUrl: http://${GUI_DOMAIN}:7000
+      baseUrl: http://tap-gui.${DOMAIN}
       cors:
-          origin: http://${GUI_DOMAIN}:7000
-  
+          origin: http://tap-gui.${DOMAIN}
 
 EOF
 
